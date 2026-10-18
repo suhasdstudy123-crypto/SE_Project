@@ -7,15 +7,17 @@ from src import models  # pylint: disable=unused-import  # registers all tables
 from src.config import Config
 from src.extensions import csrf, db, login_manager
 from src.rbac import FORBIDDEN_MESSAGE, register_rbac
+from src.routes.attendance import attendance_bp
 from src.routes.auth import auth_bp
-from src.routes.health import health_bp
+from src.routes.courses import courses_bp
 from src.routes.departments import departments_bp
+from src.routes.fees import fees_bp
+from src.routes.health import health_bp
+from src.routes.marks import marks_bp
+from src.routes.my_courses import my_courses_bp
 from src.routes.rbac_routes import rbac_bp
 from src.routes.students import students_bp
-from src.routes.fees import fees_bp
-from src.routes.courses import courses_bp
-from src.routes.my_courses import my_courses_bp
-from src.routes.attendance import attendance_bp
+from src.validators import ValidationError
 
 
 def create_app(config_class=Config):
@@ -37,6 +39,7 @@ def create_app(config_class=Config):
     app.register_blueprint(courses_bp)
     app.register_blueprint(my_courses_bp)
     app.register_blueprint(attendance_bp)
+    app.register_blueprint(marks_bp)
     register_error_handlers(app)
 
     with app.app_context():
@@ -59,3 +62,7 @@ def register_error_handlers(app):
     @app.errorhandler(CSRFError)
     def csrf_error(error):
         return jsonify({"error": f"Security token missing or expired: {error.description}"}), 400
+
+    @app.errorhandler(ValidationError)
+    def validation_error(error):
+        return jsonify({"error": error.message}), error.status_code

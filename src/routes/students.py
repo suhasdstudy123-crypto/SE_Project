@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request
 from src.extensions import db
 from src.models import Department, Section, Student
 from src.rbac import admin_required
+from src.validators import ValidationError, validate_email
 
 students_bp = Blueprint(
     "students",
@@ -13,7 +14,9 @@ students_bp = Blueprint(
 )
 
 
-def validate_student_data(data, existing_student=None):
+def validate_student_data(
+    data, existing_student=None
+):  # pylint: disable=too-many-return-statements,too-many-branches
     """Validate student fields and department-section consistency."""
     if not isinstance(data, dict):
         return None, "A JSON object is required."
@@ -33,6 +36,11 @@ def validate_student_data(data, existing_student=None):
         return None, "Student name is required."
     if not isinstance(email, str) or not email.strip():
         return None, "Student email is required."
+
+    try:
+        email = validate_email(email)
+    except ValidationError as err:
+        return None, err.message
 
     if not isinstance(semester, int) or isinstance(semester, bool) or not 1 <= semester <= 8:
         return None, "Semester must be an integer between 1 and 8."
@@ -85,8 +93,26 @@ def validate_student_data(data, existing_student=None):
 @students_bp.get("")
 @admin_required
 def list_students():
-    """List all students."""
-    students = Student.query.order_by(Student.srn).all()
+    """List all students with optional parameterized search (TC-SEC-05)."""
+    query = Student.query
+    search = request.args.get("search") or request.args.get("q")
+    if search:
+        search_term = f"%{search.strip()}%"
+        query = query.filter(
+            db.or_(
+                Student.name.ilike(search_term),
+                Student.srn.ilike(search_term),
+                Student.email.ilike(search_term),
+            )
+        )
+    department_id = request.args.get("department_id", type=int)
+    if department_id:
+        query = query.filter(Student.department_id == department_id)
+    section_id = request.args.get("section_id", type=int)
+    if section_id:
+        query = query.filter(Student.section_id == section_id)
+
+    students = query.order_by(Student.srn).all()
     return jsonify({"students": [student.to_dict() for student in students]})
 
 
