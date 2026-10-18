@@ -80,7 +80,7 @@ def test_non_admin_cannot_manage_students(client, make_user, role):
     assert client.post("/api/admin/students", json={}).status_code == 403
 
 
-def test_admin_can_create_and_list_students(admin_client, department_and_section):
+def test_tc_stu_02_admin_can_create_and_list_students(admin_client, department_and_section):
     """Admin can create a student and find it in the list."""
     department_id, section_id = department_and_section
 
@@ -96,7 +96,7 @@ def test_admin_can_create_and_list_students(admin_client, department_and_section
     assert any(item["id"] == student_id for item in response.get_json()["students"])
 
 
-def test_duplicate_srn_is_rejected(admin_client, department_and_section):
+def test_tc_stu_03_duplicate_srn_is_rejected(admin_client, department_and_section):
     """An SRN cannot be reused."""
     department_id, section_id = department_and_section
 
@@ -112,7 +112,7 @@ def test_duplicate_srn_is_rejected(admin_client, department_and_section):
     assert "SRN already exists" in response.get_json()["error"]
 
 
-def test_duplicate_email_is_rejected(admin_client, department_and_section):
+def test_tc_stu_03_duplicate_email_is_rejected(admin_client, department_and_section):
     """An email address cannot be reused."""
     department_id, section_id = department_and_section
 
@@ -167,7 +167,7 @@ def test_student_cannot_use_section_from_another_department(admin_client, depart
     assert "does not belong" in response.get_json()["error"]
 
 
-def test_admin_can_update_student(admin_client, department_and_section):
+def test_tc_stu_04_admin_can_update_student(admin_client, department_and_section):
     """Admin can update a student's details."""
     department_id, section_id = department_and_section
     response = create_student(admin_client, department_id, section_id)
@@ -206,7 +206,7 @@ def test_update_rejects_duplicate_email(admin_client, department_and_section):
     assert "Email already exists" in response.get_json()["error"]
 
 
-def test_admin_can_delete_student(admin_client, department_and_section):
+def test_tc_stu_04_admin_can_delete_student(admin_client, department_and_section):
     """Admin can delete a student record."""
     department_id, section_id = department_and_section
     response = create_student(admin_client, department_id, section_id)

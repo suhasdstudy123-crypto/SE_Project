@@ -38,7 +38,7 @@ def test_unauthenticated_user_cannot_access_departments(client):
     assert response.status_code == 401
 
 
-def test_create_and_list_department(admin_client):
+def test_tc_stu_01_create_and_list_department(admin_client):
     """An Admin can create a department and list it."""
     response = admin_client.post(
         "/api/departments",
@@ -95,7 +95,7 @@ def test_update_and_delete_department(admin_client):
     assert response.status_code == 404
 
 
-def test_create_section_under_department(admin_client):
+def test_tc_stu_01_create_section_under_department(admin_client):
     """An Admin can create a section belonging to a department."""
     response = admin_client.post(
         "/api/departments",

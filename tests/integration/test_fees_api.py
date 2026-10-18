@@ -60,7 +60,7 @@ def test_unauthenticated_user_cannot_list_fees(client):
 
 
 @pytest.mark.parametrize("role", ["faculty", "student"])
-def test_non_admin_cannot_manage_fees(client, make_user, role):
+def test_tc_fee_02_non_admin_cannot_manage_fees(client, make_user, role):
     """Faculty and Students receive HTTP 403."""
     make_user(role)
     assert login(client, f"{role}@pes.edu").status_code == 200
@@ -75,7 +75,7 @@ def test_non_admin_cannot_manage_fees(client, make_user, role):
     )
 
 
-def test_admin_can_set_paid_status(admin_client, student_record):
+def test_tc_fee_01_admin_can_set_paid_status(admin_client, student_record):
     """Admin can mark a student's semester fees as PAID."""
     student_id = student_record["id"]
 
@@ -90,7 +90,7 @@ def test_admin_can_set_paid_status(admin_client, student_record):
     assert response.get_json()["fee"]["status"] == "PAID"
 
 
-def test_admin_can_update_fee_status(admin_client, student_record):
+def test_tc_fee_01_admin_can_update_fee_status(admin_client, student_record):
     """Updating a semester status changes the existing record."""
     student_id = student_record["id"]
     url = f"/api/admin/fees/{student_id}"
