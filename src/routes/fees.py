@@ -2,9 +2,12 @@
 
 from flask import Blueprint, jsonify, request
 
+from flask_login import current_user
+
 from src.extensions import db
 from src.models import FeeState, FeeStatus, Student
 from src.rbac import admin_required
+from src.services.audit_service import record_audit_log
 
 fees_bp = Blueprint(
     "fees",
@@ -72,8 +75,28 @@ def set_fee_status(student_id):
             status=status,
         )
         db.session.add(record)
+        record_audit_log(
+            user_id=current_user.id if getattr(current_user, "is_authenticated", False) else None,
+            action="fee status set",
+            entity="fee_status",
+            entity_id=f"{student_id}:{semester}",
+            old_value=None,
+            new_value=status,
+        )
     else:
-        record.status = status
+        old_status = record.status
+        if old_status != status:
+            record_audit_log(
+                user_id=(
+                    current_user.id if getattr(current_user, "is_authenticated", False) else None
+                ),
+                action="fee status changed",
+                entity="fee_status",
+                entity_id=f"{student_id}:{semester}",
+                old_value=old_status,
+                new_value=status,
+            )
+            record.status = status
 
     try:
         db.session.commit()

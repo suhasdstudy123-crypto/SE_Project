@@ -7,6 +7,7 @@ import ComingSoonPage from "./pages/ComingSoonPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import MyCoursesPage from "./pages/MyCoursesPage.jsx";
+import AuditPage from "./pages/admin/AuditPage.jsx";
 import CoursesPage from "./pages/admin/CoursesPage.jsx";
 import DepartmentsPage from "./pages/admin/DepartmentsPage.jsx";
 import FeesPage from "./pages/admin/FeesPage.jsx";
@@ -21,7 +22,7 @@ const PAGES_BY_ROLE = {
     ["fees", <FeesPage key="fees" />],
     ["courses", <CoursesPage key="courses" />],
     ["esa", <ComingSoonPage key="esa" title="ESA Window" card={17} />],
-    ["audit", <ComingSoonPage key="audit" title="Audit Log" card={6} />],
+    ["audit", <AuditPage key="audit" />],
   ],
   faculty: [
     ["courses", <MyCoursesPage key="courses" />],

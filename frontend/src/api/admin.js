@@ -38,3 +38,8 @@ export async function listFees(semester) {
 export async function setFee(studentId, semester, status) {
   return (await api.put(`/admin/fees/${studentId}`, { semester, status })).data.fee;
 }
+
+// Audit log (card #6)
+export async function listAuditLogs(params) {
+  return (await api.get("/admin/audit-log", { params })).data.audit_log;
+}
