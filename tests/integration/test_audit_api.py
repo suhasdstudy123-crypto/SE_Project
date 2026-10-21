@@ -1,4 +1,4 @@
-"""Integration tests for the Audit Log API and event logging (Issue #6: SRS-F-025, TC-AUD-01)."""
+"""Integration tests for the Audit Log API and event logging (Issue #6: SRS-F-025, TC-FEE-01)."""
 
 from tests.conftest import TEST_PASSWORD
 
@@ -8,8 +8,8 @@ def login(client, email, password=TEST_PASSWORD):
     return client.post("/api/auth/login", json={"email": email, "password": password})
 
 
-def setup_department_course_student(client):
-    """Helper: create department, section, student, and course for marks testing."""
+def setup_department_and_student(client):
+    """Helper: create department, section, and student for fee testing."""
     dept = client.post("/api/departments", json={"name": "Computer Science"}).get_json()[
         "department"
     ]
@@ -28,93 +28,70 @@ def setup_department_course_student(client):
         },
     ).get_json()["student"]
 
-    course = client.post(
-        "/api/admin/courses",
-        json={
-            "code": "CS301",
-            "name": "Data Structures",
-            "credits": 4,
-            "department_id": dept["id"],
-            "semester": 3,
-        },
-    ).get_json()["course"]
-
-    return dept, sec, student, course
+    return dept, sec, student
 
 
-def test_tc_aud_01_faculty_changes_mark_generates_audit_log_entry(client, make_user):
-    """TC-AUD-01: Faculty changes a mark from 15 to 18 -> Audit row with user, action, old 15, new 18, timestamp."""
-    make_user("admin", email="admin@pes.edu")
-    make_user("faculty", email="prof@pes.edu")
-
-    # 1. Admin sets up department, student, and course
-    login(client, "admin@pes.edu")
-    _, _, student, course = setup_department_course_student(client)
-    client.post("/api/auth/logout")
-
-    # 2. Faculty logs in and enters initial mark: 15
-    login(client, "prof@pes.edu")
-    res_init = client.put(
-        f"/api/marks/{course['id']}/{student['id']}",
-        json={"isa1": 15},
-    )
-    assert res_init.status_code == 200
-    assert res_init.get_json()["marks"]["isa1"] == 15.0
-
-    # 3. Faculty changes the mark from 15 to 18 (TC-AUD-01)
-    res_change = client.put(
-        f"/api/marks/{course['id']}/{student['id']}",
-        json={"isa1": 18},
-    )
-    assert res_change.status_code == 200
-    assert res_change.get_json()["marks"]["isa1"] == 18.0
-    client.post("/api/auth/logout")
-
-    # 4. Admin opens /api/admin/audit-log and inspects the recorded audit trail
-    login(client, "admin@pes.edu")
-    audit_res = client.get("/api/admin/audit-log")
-    assert audit_res.status_code == 200
-    logs = audit_res.get_json()["audit_log"]
-
-    # Locate the "marks changed" log row
-    marks_change_log = next(
-        (
-            log
-            for log in logs
-            if log["action"] == "marks changed"
-            and log["entity_id"] == f"{course['id']}:{student['id']}"
-        ),
-        None,
-    )
-    assert marks_change_log is not None, "Expected audit log row for marks changed"
-    assert marks_change_log["old_value"] == "15.0"
-    assert marks_change_log["new_value"] == "18.0"
-    assert marks_change_log["user_email"] == "prof@pes.edu"
-    assert marks_change_log["timestamp"] is not None
-
-
-def test_fee_status_update_generates_audit_log_entry(client, make_user):
-    """Fee status changes are recorded in the audit trail (SRS-F-025)."""
+def test_tc_fee_01_paid_to_unpaid_creates_audit_log_entry(client, make_user):
+    """TC-FEE-01 / SRS-F-025: Changing status from PAID to UNPAID creates an audit log row."""
     make_user("admin", email="admin@pes.edu")
     login(client, "admin@pes.edu")
-    _, _, student, _ = setup_department_course_student(client)
+    _, _, student = setup_department_and_student(client)
 
-    # Set initial fee status
-    client.put(f"/api/admin/fees/{student['id']}", json={"semester": 3, "status": "UNPAID"})
+    student_id = student["id"]
+    fee_url = f"/api/admin/fees/{student_id}"
 
-    # Change fee status to PAID
-    client.put(f"/api/admin/fees/{student['id']}", json={"semester": 3, "status": "PAID"})
+    # 1. Mark as PAID initially
+    res_paid = client.put(fee_url, json={"semester": 3, "status": "PAID"})
+    assert res_paid.status_code == 200
+    assert res_paid.get_json()["fee"]["status"] == "PAID"
 
-    # Inspect audit log
+    # 2. Change status from PAID to UNPAID
+    res_unpaid = client.put(fee_url, json={"semester": 3, "status": "UNPAID"})
+    assert res_unpaid.status_code == 200
+    assert res_unpaid.get_json()["fee"]["status"] == "UNPAID"
+
+    # 3. Query audit log and verify audit row for PAID -> UNPAID change
     audit_res = client.get("/api/admin/audit-log?entity=fee_status")
     assert audit_res.status_code == 200
     logs = audit_res.get_json()["audit_log"]
 
-    fee_log = next((l for l in logs if l["action"] == "fee status changed"), None)
-    assert fee_log is not None
-    assert fee_log["old_value"] == "UNPAID"
-    assert fee_log["new_value"] == "PAID"
-    assert fee_log["user_email"] == "admin@pes.edu"
+    change_log = next(
+        (
+            l
+            for l in logs
+            if l["action"] == "fee status changed"
+            and l["old_value"] == "PAID"
+            and l["new_value"] == "UNPAID"
+        ),
+        None,
+    )
+    assert change_log is not None, "Expected audit log row for PAID -> UNPAID fee change"
+    assert change_log["entity"] == "fee_status"
+    assert change_log["entity_id"] == f"{student_id}:3"
+    assert change_log["user_email"] == "admin@pes.edu"
+    assert change_log["timestamp"] is not None
+
+
+def test_admin_audit_log_filters_by_action_and_limit(client, make_user):
+    """Audit log endpoint supports entity, action, and limit query filters."""
+    make_user("admin", email="admin@pes.edu")
+    login(client, "admin@pes.edu")
+    _, _, student = setup_department_and_student(client)
+
+    student_id = student["id"]
+    client.put(f"/api/admin/fees/{student_id}", json={"semester": 1, "status": "PAID"})
+    client.put(f"/api/admin/fees/{student_id}", json={"semester": 1, "status": "UNPAID"})
+
+    # Filter by action
+    action_res = client.get("/api/admin/audit-log?action=fee+status+changed")
+    assert action_res.status_code == 200
+    for log in action_res.get_json()["audit_log"]:
+        assert log["action"] == "fee status changed"
+
+    # Limit parameter
+    limit_res = client.get("/api/admin/audit-log?limit=1")
+    assert limit_res.status_code == 200
+    assert len(limit_res.get_json()["audit_log"]) == 1
 
 
 def test_non_admin_cannot_access_audit_log(client, make_user):

@@ -43,7 +43,7 @@ const SAMPLE_LOGS = [
 afterEach(() => vi.restoreAllMocks());
 
 describe("AuditPage (Card #6, SRS-F-025)", () => {
-  it("renders audit log records with user, action, and changes (TC-AUD-01)", async () => {
+  it("renders audit log records with user, action, and changes (SRS-F-025)", async () => {
     vi.spyOn(adminApi, "listAuditLogs").mockResolvedValue(SAMPLE_LOGS);
     renderPage(<AuditPage />);
 
