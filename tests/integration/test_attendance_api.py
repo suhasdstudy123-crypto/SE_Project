@@ -238,3 +238,126 @@ def test_non_object_body_and_missing_course(faculty_client, course_setup):
     assert faculty_client.put(url, json=["not", "an", "object"]).status_code == 400
     assert faculty_client.get(f"/api/faculty/attendance/9999?date={CLASS_DATE}").status_code == 404
     assert mark(faculty_client, 9999, [{"student_id": 1, "present": True}]).status_code == 404
+
+
+def test_tc_att_03_attendance_percentage_and_shortage_flag(app, faculty_client, course_setup):
+    """TC-ATT-03: Attendance % = present/held*100; <75% flagged as shortage, exactly 75% not flagged (SRS-F-013, F-014)."""
+    course_id = course_setup["course_id"]
+    first, second, third = course_setup["enrolled"]
+
+    # Before any class is recorded: 0 classes gives 0.0% and no shortage without error
+    initial = faculty_client.get(f"/api/faculty/attendance/{course_id}?date=2026-10-01")
+    assert initial.status_code == 200
+    for row in initial.get_json()["students"]:
+        assert row["held"] == 0
+        assert row["attended"] == 0
+        assert row["percentage"] == 0.0
+        assert row["shortage"] is False
+
+    # Mark 20 class dates with boundary conditions:
+    # Student 1: 18 present (90.0% -> shortage False)
+    # Student 2: 15 present (75.0% -> exactly 75% boundary, shortage False)
+    # Student 3: 14 present (70.0% -> below 75%, shortage True)
+    present_counts = {first: 18, second: 15, third: 14}
+    for day in range(1, 21):
+        class_date = f"2026-09-{day:02d}"
+        records = [
+            {"student_id": sid, "present": day <= present_counts[sid]}
+            for sid in course_setup["enrolled"]
+        ]
+        res = mark(faculty_client, course_id, records, class_date=class_date)
+        assert res.status_code == 200
+
+    # Query attendance on the faculty route
+    response = faculty_client.get(f"/api/faculty/attendance/{course_id}?date=2026-09-20")
+    assert response.status_code == 200
+    by_id = {row["student_id"]: row for row in response.get_json()["students"]}
+
+    assert by_id[first]["held"] == 20
+    assert by_id[first]["attended"] == 18
+    assert by_id[first]["percentage"] == 90.0
+    assert by_id[first]["shortage"] is False
+
+    assert by_id[second]["held"] == 20
+    assert by_id[second]["attended"] == 15
+    assert by_id[second]["percentage"] == 75.0
+    assert by_id[second]["shortage"] is False
+
+    assert by_id[third]["held"] == 20
+    assert by_id[third]["attended"] == 14
+    assert by_id[third]["percentage"] == 70.0
+    assert by_id[third]["shortage"] is True
+
+
+def test_tc_att_04_student_attendance_view_and_rbac(app, client, make_user, course_setup):
+    """TC-ATT-04: Student views own attendance % per course; roles enforced (SRS-F-013, F-014, F-021)."""
+    course_id = course_setup["course_id"]
+    first, _second, third = course_setup["enrolled"]
+
+    # Mark 10 classes: first has 9 present (90%), third has 7 present (70%)
+    faculty = app.test_client()
+    login(faculty, "faculty1@pes.edu")
+    for day in range(1, 11):
+        class_date = f"2026-08-{day:02d}"
+        records = [
+            {"student_id": first, "present": day <= 9},
+            {"student_id": third, "present": day <= 7},
+        ]
+        mark(faculty, course_id, records, class_date=class_date)
+
+    # Student 1 logs in and views own attendance
+    student1_client = app.test_client()
+    make_user("student", email="student1@pes.edu")
+    with app.app_context():
+        stu1 = db.session.get(Student, first)
+        u1 = User.query.filter_by(email="student1@pes.edu").one()
+        stu1.user_id = u1.id
+        db.session.commit()
+
+    login(student1_client, "student1@pes.edu")
+    res1 = student1_client.get("/api/student/attendance")
+    assert res1.status_code == 200
+    courses1 = res1.get_json()["attendance"]
+    assert len(courses1) == 1
+    assert courses1[0]["course_code"] == "UE24AM241A"
+    assert courses1[0]["percentage"] == 90.0
+    assert courses1[0]["shortage"] is False
+    assert courses1[0]["held"] == 10
+    assert courses1[0]["attended"] == 9
+
+    # Student 1 detail view for this course
+    detail1 = student1_client.get(f"/api/student/attendance/{course_id}")
+    assert detail1.status_code == 200
+    assert detail1.get_json()["percentage"] == 90.0
+    assert len(detail1.get_json()["records"]) == 10
+
+    # Student 3 logs in and views own attendance: has shortage flag (70%)
+    student3_client = app.test_client()
+    make_user("student", email="student3@pes.edu")
+    with app.app_context():
+        stu3 = db.session.get(Student, third)
+        u3 = User.query.filter_by(email="student3@pes.edu").one()
+        stu3.user_id = u3.id
+        db.session.commit()
+
+    login(student3_client, "student3@pes.edu")
+    res3 = student3_client.get("/api/student/attendance")
+    assert res3.status_code == 200
+    courses3 = res3.get_json()["attendance"]
+    assert len(courses3) == 1
+    assert courses3[0]["percentage"] == 70.0
+    assert courses3[0]["shortage"] is True
+
+    # Student without linked student record gets empty list
+    make_user("student", email="unlinked@pes.edu")
+    unlinked_client = app.test_client()
+    login(unlinked_client, "unlinked@pes.edu")
+    assert unlinked_client.get("/api/student/attendance").get_json() == {"attendance": []}
+
+    # RBAC: Admin and Faculty get HTTP 403 on /api/student/attendance
+    admin_client = app.test_client()
+    make_user("admin", email="admin@pes.edu")
+    login(admin_client, "admin@pes.edu")
+    assert admin_client.get("/api/student/attendance").status_code == 403
+
+    assert faculty.get("/api/student/attendance").status_code == 403

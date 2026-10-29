@@ -5,8 +5,8 @@ import * as coursesApi from "../../api/courses.js";
 import { apiErrorMessage } from "../../api/errors.js";
 import { todayIso } from "../../utils/dates.js";
 
-// Faculty Mark Attendance page (issue #13): pick course + date, everyone starts as present
-// (SAD 4.5, NF-002), untick absentees, Save. Opening a past date lets you correct it.
+// Faculty Mark Attendance page (issues #13, #14): pick course + date, everyone starts as present
+// (SAD 4.5, NF-002), untick absentees, Save. Displays attendance % with Shortage warning if < 75%.
 export default function AttendancePage() {
   const [courses, setCourses] = useState([]);
   const [courseId, setCourseId] = useState("");
@@ -73,6 +73,8 @@ export default function AttendancePage() {
           ? `Attendance saved. ${result.corrected} correction(s) recorded in the audit log.`
           : "Attendance saved.",
       );
+      const updated = await attendanceApi.getClassAttendance(courseId, date);
+      setStudents(updated.students);
     } catch (err) {
       setError(apiErrorMessage(err, "Could not save attendance."));
     } finally {
@@ -152,6 +154,7 @@ export default function AttendancePage() {
                   <tr>
                     <th>SRN</th>
                     <th>Name</th>
+                    <th className="text-center">Attendance %</th>
                     <th className="text-center">Present</th>
                   </tr>
                 </thead>
@@ -165,6 +168,16 @@ export default function AttendancePage() {
                     >
                       <td>{student.srn}</td>
                       <td>{student.name}</td>
+                      <td className="text-center">
+                        <span className={student.shortage ? "text-danger fw-bold" : ""}>
+                          {student.percentage != null ? `${student.percentage}%` : "—"}
+                        </span>
+                        {student.shortage && (
+                          <Badge bg="danger" className="ms-2">
+                            Shortage
+                          </Badge>
+                        )}
+                      </td>
                       <td className="text-center">
                         <Form.Check
                           type="checkbox"

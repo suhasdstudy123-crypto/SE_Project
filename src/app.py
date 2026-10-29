@@ -7,7 +7,7 @@ from src import models  # pylint: disable=unused-import  # registers all tables
 from src.config import Config
 from src.extensions import csrf, db, login_manager
 from src.rbac import FORBIDDEN_MESSAGE, register_rbac
-from src.routes.attendance import attendance_bp
+from src.routes.attendance import attendance_bp, student_attendance_bp
 from src.routes.audit import audit_bp
 from src.routes.auth import auth_bp
 from src.routes.courses import courses_bp
@@ -40,6 +40,7 @@ def create_app(config_class=Config):
     app.register_blueprint(courses_bp)
     app.register_blueprint(my_courses_bp)
     app.register_blueprint(attendance_bp)
+    app.register_blueprint(student_attendance_bp)
     app.register_blueprint(marks_bp)
     app.register_blueprint(audit_bp)
     register_error_handlers(app)

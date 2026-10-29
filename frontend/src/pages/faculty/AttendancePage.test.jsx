@@ -13,9 +13,30 @@ const courses = [
   { id: 11, code: "UE24AM243A", name: "DBMS" },
 ];
 const roster = [
-  { student_id: 1, srn: "PES1UG24AM001", name: "Student 01", present: true },
-  { student_id: 2, srn: "PES1UG24AM002", name: "Student 02", present: true },
-  { student_id: 3, srn: "PES1UG24AM003", name: "Student 03", present: true },
+  {
+    student_id: 1,
+    srn: "PES1UG24AM001",
+    name: "Student 01",
+    present: true,
+    percentage: 90.0,
+    shortage: false,
+  },
+  {
+    student_id: 2,
+    srn: "PES1UG24AM002",
+    name: "Student 02",
+    present: true,
+    percentage: 75.0,
+    shortage: false,
+  },
+  {
+    student_id: 3,
+    srn: "PES1UG24AM003",
+    name: "Student 03",
+    present: true,
+    percentage: 70.0,
+    shortage: true,
+  },
 ];
 
 beforeEach(() => {
@@ -30,7 +51,7 @@ async function renderPage() {
   await screen.findByText("PES1UG24AM001");
 }
 
-describe("Faculty Mark Attendance page (issue #13)", () => {
+describe("Faculty Mark Attendance page (issues #13, #14)", () => {
   it("lists every enrolled student as present by default for today", async () => {
     await renderPage();
     expect(coursesApi.listMyCourses).toHaveBeenCalledWith("faculty");
@@ -38,6 +59,19 @@ describe("Faculty Mark Attendance page (issue #13)", () => {
     expect(screen.getByText("3 of 3 present")).toBeInTheDocument();
     expect(screen.getByText(/Not recorded yet/)).toBeInTheDocument();
     for (const box of screen.getAllByRole("checkbox")) expect(box).toBeChecked();
+  });
+
+  it("TC-ATT-03: displays attendance % and red Shortage badge when below 75%", async () => {
+    await renderPage();
+    expect(screen.getByText("Attendance %")).toBeInTheDocument();
+    expect(screen.getByText("90%")).toBeInTheDocument();
+    expect(screen.getByText("75%")).toBeInTheDocument();
+    expect(screen.getByText("70%")).toBeInTheDocument();
+
+    // Shortage badge should be shown for Student 3 (70%)
+    const shortageBadges = screen.getAllByText("Shortage");
+    expect(shortageBadges.length).toBe(1);
+    expect(shortageBadges[0]).toHaveClass("badge");
   });
 
   it("TC-ATT-01: unticking an absentee and saving sends every student's status", async () => {

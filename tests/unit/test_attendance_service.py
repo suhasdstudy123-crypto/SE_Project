@@ -168,3 +168,106 @@ def test_invalid_records_are_rejected(setup, records):
     """Malformed records are rejected before anything is saved."""
     with pytest.raises(AttendanceError):
         attendance_service.save_attendance(setup["course"], setup["faculty"], CLASS_DATE, records)
+
+
+@pytest.mark.parametrize(
+    "attended, held, expected_pct",
+    [
+        (18, 20, 90.0),
+        (15, 20, 75.0),
+        (14, 20, 70.0),
+        (0, 0, 0.0),
+        (0, 10, 0.0),
+        (10, 10, 100.0),
+        (2, 3, 66.67),
+    ],
+)
+def test_calculate_percentage(attended, held, expected_pct):
+    """Attendance % formula: (present / held) * 100 with 0 held giving 0.0 without error (SRS-F-013)."""
+    assert attendance_service.calculate_percentage(attended, held) == expected_pct
+
+
+@pytest.mark.parametrize(
+    "pct, held, expected_shortage",
+    [
+        (90.0, 20, False),
+        (75.0, 20, False),  # exactly 75% boundary is NOT shortage
+        (74.99, 20, True),  # strictly below 75% is shortage
+        (70.0, 20, True),
+        (0.0, 0, False),  # 0 classes held is NOT flagged as shortage
+        (0.0, 10, True),  # 0 present out of 10 held IS shortage
+    ],
+)
+def test_is_shortage(pct, held, expected_shortage):
+    """Shortage is flagged strictly below 75%; 75% boundary and 0 classes are not flagged (SRS-F-014)."""
+    assert attendance_service.is_shortage(pct, held) == expected_shortage
+
+
+def test_course_attendance_summary_and_class_attendance(setup):
+    """Course summary computes correct stats and flags shortage per student (SRS-F-013, SRS-F-014)."""
+    first, second = setup["students"]
+    course, faculty = setup["course"], setup["faculty"]
+
+    # Save attendance for 4 dates:
+    # Student 1: 3 present / 4 held = 75.0% (no shortage)
+    # Student 2: 2 present / 4 held = 50.0% (shortage)
+    for day, (p1, p2) in enumerate(
+        [(True, True), (True, False), (True, False), (False, True)], start=1
+    ):
+        attendance_service.save_attendance(
+            course,
+            faculty,
+            date(2026, 10, day),
+            [{"student_id": first, "present": p1}, {"student_id": second, "present": p2}],
+        )
+
+    summary = attendance_service.course_attendance_summary(course)
+    assert summary[first] == {
+        "held": 4,
+        "attended": 3,
+        "percentage": 75.0,
+        "shortage": False,
+    }
+    assert summary[second] == {
+        "held": 4,
+        "attended": 2,
+        "percentage": 50.0,
+        "shortage": True,
+    }
+
+    # class_attendance also includes these fields
+    view = attendance_service.class_attendance(course, date(2026, 10, 1))
+    s1 = next(s for s in view["students"] if s["student_id"] == first)
+    s2 = next(s for s in view["students"] if s["student_id"] == second)
+    assert s1["percentage"] == 75.0
+    assert s1["shortage"] is False
+    assert s2["percentage"] == 50.0
+    assert s2["shortage"] is True
+
+
+def test_student_attendance_summary(app, setup):
+    """Student summary returns all enrolled courses with attendance stats (SRS-F-013, F-014)."""
+    first = setup["students"][0]
+    course, faculty = setup["course"], setup["faculty"]
+    attendance_service.save_attendance(
+        course,
+        faculty,
+        CLASS_DATE,
+        [{"student_id": first, "present": True}],
+    )
+    with app.app_context():
+        student = db.session.get(Student, first)
+        summary = attendance_service.student_attendance_summary(student)
+        assert len(summary) == 1
+        assert summary[0]["course_code"] == course.code
+        assert summary[0]["held"] == 1
+        assert summary[0]["attended"] == 1
+        assert summary[0]["percentage"] == 100.0
+        assert summary[0]["shortage"] is False
+
+        detail = attendance_service.student_course_attendance_detail(student, course)
+        assert detail["held"] == 1
+        assert detail["attended"] == 1
+        assert detail["percentage"] == 100.0
+        assert len(detail["records"]) == 1
+        assert detail["records"][0] == {"date": "2026-10-12", "present": True}
