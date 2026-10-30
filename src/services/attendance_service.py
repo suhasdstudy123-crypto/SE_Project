@@ -1,4 +1,4 @@
-"""Attendance marking and correction rules (AttendanceService in the SAD; SRS-F-011, F-012).
+"""Attendance marking, correction, percentage, and shortage calculation (SRS-F-011..F-014).
 
 Every save is one database transaction (SRS-NF-005): the attendance rows and the
 audit-log rows for any corrections are written together or not at all.
@@ -11,6 +11,8 @@ from src.models import Attendance, AuditLog, Enrollment
 from src.services.course_service import course_roster
 from src.services.seed_service import atomic_transaction
 
+SHORTAGE_THRESHOLD = 75.0
+
 
 class AttendanceError(Exception):
     """An attendance problem, with the HTTP status code the API should return."""
@@ -19,6 +21,98 @@ class AttendanceError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+
+
+def calculate_percentage(attended, held):
+    """Compute attendance percentage (SRS-F-013).
+
+    % = (present / held) * 100.
+    0 classes held returns 0.0 without division-by-zero error.
+    """
+    if not held or held <= 0:
+        return 0.0
+    return round((attended / held) * 100.0, 2)
+
+
+def is_shortage(percentage, held=None):
+    """Return True if attendance percentage is strictly below 75% (SRS-F-014).
+
+    Exactly 75% is not flagged as a shortage.
+    0 classes held is not flagged as a shortage.
+    """
+    if held is not None and held == 0:
+        return False
+    return percentage < SHORTAGE_THRESHOLD
+
+
+def course_attendance_summary(course):
+    """Return student_id -> {held, attended, percentage, shortage} for enrolled students."""
+    roster = course_roster(course)
+    records = Attendance.query.filter_by(course_id=course.id).all()
+    by_student = {}
+    for rec in records:
+        by_student.setdefault(rec.student_id, []).append(rec)
+
+    summary = {}
+    for student in roster:
+        student_records = by_student.get(student.id, [])
+        held = len(student_records)
+        attended = sum(1 for r in student_records if r.present)
+        pct = calculate_percentage(attended, held)
+        summary[student.id] = {
+            "held": held,
+            "attended": attended,
+            "percentage": pct,
+            "shortage": is_shortage(pct, held),
+        }
+    return summary
+
+
+def student_attendance_summary(student):
+    """Return attendance summary for every course the student is enrolled in (SRS-F-013, F-014)."""
+    courses = sorted(
+        (enrollment.course for enrollment in student.enrollments),
+        key=lambda c: c.code,
+    )
+    result = []
+    for course in courses:
+        records = Attendance.query.filter_by(course_id=course.id, student_id=student.id).all()
+        held = len(records)
+        attended = sum(1 for r in records if r.present)
+        pct = calculate_percentage(attended, held)
+        result.append(
+            {
+                "course_id": course.id,
+                "course_code": course.code,
+                "course_name": course.name,
+                "credits": course.credits,
+                "held": held,
+                "attended": attended,
+                "percentage": pct,
+                "shortage": is_shortage(pct, held),
+            }
+        )
+    return result
+
+
+def student_course_attendance_detail(student, course):
+    """Return detailed attendance records for a specific enrolled course."""
+    records = (
+        Attendance.query.filter_by(course_id=course.id, student_id=student.id)
+        .order_by(Attendance.date.desc())
+        .all()
+    )
+    held = len(records)
+    attended = sum(1 for r in records if r.present)
+    pct = calculate_percentage(attended, held)
+    return {
+        "course": course.to_dict(),
+        "held": held,
+        "attended": attended,
+        "percentage": pct,
+        "shortage": is_shortage(pct, held),
+        "records": [{"date": r.date.isoformat(), "present": r.present} for r in records],
+    }
 
 
 def parse_class_date(value, today=None):
@@ -44,7 +138,7 @@ def check_assigned_faculty(course, user):
 
 
 def class_attendance(course, class_date):
-    """Every enrolled student with their attendance for that date.
+    """Every enrolled student with their attendance for that date and cumulative attendance %.
 
     Students without a saved entry are shown as present ('All present' default, SAD 4.5).
     """
@@ -52,12 +146,17 @@ def class_attendance(course, class_date):
         row.student_id: row
         for row in Attendance.query.filter_by(course_id=course.id, date=class_date).all()
     }
+    summary = course_attendance_summary(course)
     students = [
         {
             "student_id": student.id,
             "srn": student.srn,
             "name": student.name,
             "present": saved[student.id].present if student.id in saved else True,
+            "attended": summary.get(student.id, {}).get("attended", 0),
+            "held": summary.get(student.id, {}).get("held", 0),
+            "percentage": summary.get(student.id, {}).get("percentage", 0.0),
+            "shortage": summary.get(student.id, {}).get("shortage", False),
         }
         for student in course_roster(course)
     ]
