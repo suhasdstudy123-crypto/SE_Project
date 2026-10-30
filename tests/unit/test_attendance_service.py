@@ -182,7 +182,7 @@ def test_invalid_records_are_rejected(setup, records):
         (2, 3, 66.67),
     ],
 )
-def test_calculate_percentage(attended, held, expected_pct):
+def test_tc_att_03_calculate_percentage(attended, held, expected_pct):
     """Attendance % formula: (present / held) * 100 with 0 held giving 0.0 without error (SRS-F-013)."""
     assert attendance_service.calculate_percentage(attended, held) == expected_pct
 
@@ -198,7 +198,7 @@ def test_calculate_percentage(attended, held, expected_pct):
         (0.0, 10, True),  # 0 present out of 10 held IS shortage
     ],
 )
-def test_is_shortage(pct, held, expected_shortage):
+def test_tc_att_04_shortage_flag_boundary(pct, held, expected_shortage):
     """Shortage is flagged strictly below 75%; 75% boundary and 0 classes are not flagged (SRS-F-014)."""
     assert attendance_service.is_shortage(pct, held) == expected_shortage
 

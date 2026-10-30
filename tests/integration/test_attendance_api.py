@@ -289,7 +289,7 @@ def test_tc_att_03_attendance_percentage_and_shortage_flag(app, faculty_client, 
     assert by_id[third]["shortage"] is True
 
 
-def test_tc_att_04_student_attendance_view_and_rbac(app, client, make_user, course_setup):
+def test_student_attendance_view_and_rbac(app, client, make_user, course_setup):
     """TC-ATT-04: Student views own attendance % per course; roles enforced (SRS-F-013, F-014, F-021)."""
     course_id = course_setup["course_id"]
     first, _second, third = course_setup["enrolled"]
