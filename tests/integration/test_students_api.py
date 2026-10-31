@@ -229,3 +229,34 @@ def test_missing_student_returns_404(admin_client):
         == 404
     )
     assert admin_client.delete("/api/admin/students/9999").status_code == 404
+
+def test_tc_stu_05_filter_students_by_semester(admin_client, department_and_section):
+    """Admin can filter students by semester."""
+    department_id, section_id = department_and_section
+
+    first = create_student(
+        admin_client,
+        department_id,
+        section_id,
+        semester=3,
+    )
+    second = create_student(
+        admin_client,
+        department_id,
+        section_id,
+        srn="PES1UG24CS002",
+        email="student2@example.com",
+        semester=5,
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    response = admin_client.get("/api/admin/students?semester=3")
+
+    assert response.status_code == 200
+    students = response.get_json()["students"]
+
+    assert len(students) == 1
+    assert students[0]["semester"] == 3
+    assert students[0]["srn"] == "PES1UG24CS001"

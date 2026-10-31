@@ -112,6 +112,9 @@ def list_students():
     if section_id:
         query = query.filter(Student.section_id == section_id)
 
+    semester = request.args.get("semester", type=int)
+    if semester:
+        query = query.filter(Student.semester == semester)
     students = query.order_by(Student.srn).all()
     return jsonify({"students": [student.to_dict() for student in students]})
 

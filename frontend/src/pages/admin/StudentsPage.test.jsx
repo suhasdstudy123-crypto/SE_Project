@@ -18,20 +18,41 @@ function fillForm(values) {
 }
 
 describe("Students page (F-005, F-006, TC-STU-02/03/04)", () => {
-  it("lists students and filters them by search", async () => {
-    vi.spyOn(adminApi, "listStudents").mockResolvedValue(STUDENTS);
-    renderPage(<StudentsPage />);
+it("lists students and filters them by search", async () => {
+  vi.spyOn(adminApi, "listStudents").mockImplementation(async (filters = {}) => {
+    const term = (filters.search || "").toLowerCase();
 
-    expect(await screen.findByText("PES1UG24AM001")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2")).toBeInTheDocument();
+    return STUDENTS.filter(
+      (student) =>
+        !term ||
+        student.name.toLowerCase().includes(term) ||
+        student.srn.toLowerCase().includes(term) ||
+        student.email.toLowerCase().includes(term),
+    );
+  });
 
-    fireEvent.change(screen.getByLabelText("Search students"), { target: { value: "rahul" } });
+  renderPage(<StudentsPage />);
+
+  expect(await screen.findByText("PES1UG24AM001")).toBeInTheDocument();
+  expect(screen.getByText("Showing 2 of 2")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Search students"), {
+    target: { value: "rahul" },
+  });
+
+  await waitFor(() => {
     expect(screen.queryByText("Asha Rao")).not.toBeInTheDocument();
     expect(screen.getByText("Rahul Nair")).toBeInTheDocument();
+  });
 
-    fireEvent.change(screen.getByLabelText("Search students"), { target: { value: "zzz" } });
+  fireEvent.change(screen.getByLabelText("Search students"), {
+    target: { value: "zzz" },
+  });
+
+  await waitFor(() => {
     expect(screen.getByText("No matching students")).toBeInTheDocument();
   });
+});
 
   it("shows an empty state when there are no students", async () => {
     vi.spyOn(adminApi, "listStudents").mockResolvedValue([]);
