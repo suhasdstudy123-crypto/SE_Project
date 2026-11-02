@@ -4,12 +4,11 @@ Every save is one database transaction (SRS-NF-005): the attendance rows and the
 audit-log rows for any corrections are written together or not at all.
 """
 
-from datetime import date
-
 from src.extensions import db
 from src.models import Attendance, AuditLog, Enrollment
 from src.services.course_service import course_roster
 from src.services.seed_service import atomic_transaction
+from src.validators import ValidationError, validate_date
 
 SHORTAGE_THRESHOLD = 75.0
 
@@ -120,15 +119,10 @@ def parse_class_date(value, today=None):
 
     `today` can be passed in by tests.
     """
-    if not isinstance(value, str):
-        raise AttendanceError("Date is required (YYYY-MM-DD).")
     try:
-        class_date = date.fromisoformat(value.strip())
-    except ValueError as error:
-        raise AttendanceError("Date must be a valid date in YYYY-MM-DD format.") from error
-    if class_date > (today or date.today()):
-        raise AttendanceError("Attendance cannot be marked for a future date.")
-    return class_date
+        return validate_date(value, allow_future=False, today=today)
+    except ValidationError as err:
+        raise AttendanceError(err.message, err.status_code) from err
 
 
 def check_assigned_faculty(course, user):
