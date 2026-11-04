@@ -236,3 +236,100 @@ def test_failed_save_rolls_back_everything(marks_setup):
     assert rec.isa1 == 15.0
     assert rec.total == 15.0
     assert AuditLog.query.count() == 0
+
+
+def test_tc_mrk_04_grade_assignment():
+    """TC-MRK-04: Grade boundaries correctly mapped to letter grades and grade points."""
+    cases = [
+        (100.0, ("S", 10)),
+        (90.0, ("S", 10)),
+        (89.9, ("A", 9)),
+        (80.0, ("A", 9)),
+        (79.9, ("B", 8)),
+        (70.0, ("B", 8)),
+        (69.9, ("C", 7)),
+        (60.0, ("C", 7)),
+        (59.9, ("D", 6)),
+        (50.0, ("D", 6)),
+        (49.9, ("E", 5)),
+        (40.0, ("E", 5)),
+        (39.9, ("F", 0)),
+        (0.0, ("F", 0)),
+        (-5.0, ("F", 0)),
+        (None, (None, None)),
+    ]
+    for total, expected in cases:
+        assert marks_service.calculate_grade_and_points(total) == expected
+
+
+def test_tc_mrk_05_sgpa_calculation():
+    """TC-MRK-05: SGPA = sum(credits * grade_point) / sum(credits) weighted by credits."""
+    # Standard multi-course calculation
+    courses = [
+        (4, 10),  # 4 * 10 = 40
+        (4, 9),  # 4 * 9 = 36
+        (2, 8),  # 2 * 8 = 16
+    ]
+    # (40 + 36 + 16) / 10 = 92 / 10 = 9.2
+    assert marks_service.calculate_sgpa(courses) == 9.2
+
+    # With F grade (0 points, but credits still count)
+    courses_with_fail = [
+        (4, 10),  # 40
+        (4, 0),  # 0
+    ]
+    # 40 / 8 = 5.0
+    assert marks_service.calculate_sgpa(courses_with_fail) == 5.0
+
+    # With dicts
+    dict_courses = [
+        {"credits": 4, "grade_point": 9},  # 36
+        {"credits": 3, "grade_point": 8},  # 24
+    ]
+    # 60 / 7 = 8.57
+    assert marks_service.calculate_sgpa(dict_courses) == 8.57
+
+    # With un-graded courses (None grade_point ignored from denominator and numerator)
+    partial_graded = [
+        (4, 10),
+        (4, None),
+    ]
+    assert marks_service.calculate_sgpa(partial_graded) == 10.0
+
+    # Empty or all ungraded returns None
+    assert marks_service.calculate_sgpa([]) is None
+    assert marks_service.calculate_sgpa([(4, None), (3, None)]) is None
+
+
+def test_get_student_results_service(marks_setup):
+    """Test get_student_results returns student's courses, marks, and calculated SGPA."""
+    course = marks_setup["course"]
+    faculty = marks_setup["faculty"]
+    student1 = marks_setup["student1"]
+
+    # Save marks for student1
+    marks_service.save_student_marks(
+        course, faculty, student1.id, {"isa1": 18.0, "isa2": 18.0, "assessment": 9.0, "esa": 45.0}
+    )
+
+    # Link a user to student1
+    user = create_user("s1_login@pes.edu", "Student One Login", TEST_PASSWORD, "student")
+    student1.user_id = user.id
+    db.session.commit()
+
+    res = marks_service.get_student_results(user)
+    assert len(res["courses"]) == 1
+    c_res = res["courses"][0]
+    assert c_res["code"] == "UE24AM301"
+    assert c_res["total"] == 90.0
+    assert c_res["grade"] == "S"
+    assert c_res["grade_point"] == 10
+    assert res["sgpa"] == 10.0
+    assert res["total_credits"] == 4
+    assert res["earned_credits"] == 4
+
+    # Non-student user returns empty
+    non_student = create_user("admin_test_res@pes.edu", "Admin", TEST_PASSWORD, "admin")
+    empty_res = marks_service.get_student_results(non_student)
+    assert empty_res["courses"] == []
+    assert empty_res["sgpa"] is None

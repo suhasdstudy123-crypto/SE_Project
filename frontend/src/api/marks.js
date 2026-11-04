@@ -1,6 +1,6 @@
 import api from "./client.js";
 
-// Faculty Marks API (Issue #15: SRS-F-019).
+// Faculty and Student Marks API (Issues #15 & #16: SRS-F-019, SRS-F-020).
 
 export async function getCourseMarks(courseId) {
   const response = await api.get(`/faculty/marks/${courseId}`);
@@ -9,5 +9,10 @@ export async function getCourseMarks(courseId) {
 
 export async function saveStudentMarks(courseId, studentId, marksData) {
   const response = await api.put(`/faculty/marks/${courseId}/${studentId}`, marksData);
+  return response.data;
+}
+
+export async function getStudentResults() {
+  const response = await api.get("/student/results");
   return response.data;
 }
