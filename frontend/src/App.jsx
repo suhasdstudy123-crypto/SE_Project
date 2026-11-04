@@ -13,6 +13,7 @@ import DepartmentsPage from "./pages/admin/DepartmentsPage.jsx";
 import FeesPage from "./pages/admin/FeesPage.jsx";
 import StudentsPage from "./pages/admin/StudentsPage.jsx";
 import AttendancePage from "./pages/faculty/AttendancePage.jsx";
+import MarksPage from "./pages/faculty/MarksPage.jsx";
 import StudentAttendancePage from "./pages/student/StudentAttendancePage.jsx";
 
 // Pages for each role. Add your card's page here (replace its ComingSoonPage).
@@ -28,7 +29,7 @@ const PAGES_BY_ROLE = {
   faculty: [
     ["courses", <MyCoursesPage key="courses" />],
     ["attendance", <AttendancePage key="attendance" />],
-    ["marks", <ComingSoonPage key="marks" title="Enter Marks" card={15} />],
+    ["marks", <MarksPage key="marks" />],
     ["reports", <ComingSoonPage key="reports" title="Course Analysis" card={25} />],
   ],
   student: [

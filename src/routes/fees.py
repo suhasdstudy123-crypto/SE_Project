@@ -8,6 +8,7 @@ from src.extensions import db
 from src.models import FeeState, FeeStatus, Student
 from src.rbac import admin_required
 from src.services.audit_service import record_audit_log
+from src.validators import ValidationError, validate_semester
 
 fees_bp = Blueprint(
     "fees",
@@ -53,15 +54,15 @@ def set_fee_status(student_id):
     semester = data.get("semester")
     status = data.get("status")
 
-    if not isinstance(semester, int) or isinstance(semester, bool) or not 1 <= semester <= 8:
-        return jsonify({"error": "Semester must be an integer between 1 and 8."}), 400
+    try:
+        semester = validate_semester(semester)
+    except ValidationError as err:
+        return jsonify({"error": err.message}), err.status_code
 
-    if not isinstance(status, str):
+    if not isinstance(status, str) or status.strip().upper() not in FeeState.ALL:
         return jsonify({"error": "Status must be PAID or UNPAID."}), 400
 
     status = status.strip().upper()
-    if status not in FeeState.ALL:
-        return jsonify({"error": "Status must be PAID or UNPAID."}), 400
 
     record = FeeStatus.query.filter_by(
         student_id=student_id,

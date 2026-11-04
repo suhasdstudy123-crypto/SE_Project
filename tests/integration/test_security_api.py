@@ -170,23 +170,54 @@ def test_tc_sec_07_server_side_input_validation(client, make_user):
     )
     assert invalid_email_res.status_code == 400
     assert "Invalid email address format" in invalid_email_res.get_json()["error"]
+
+    # Create valid student, course with assigned faculty, and enrollment while logged in as admin
+    faculty_list = client.get("/api/admin/faculty").get_json()["faculty"]
+    fac_id = next(f["id"] for f in faculty_list if f["email"] == "faculty@pes.edu")
+
+    stu_res = client.post(
+        "/api/admin/students",
+        json={
+            "srn": "PES1UG24EC002",
+            "name": "Student Good",
+            "email": "good@pes.edu",
+            "semester": 1,
+            "department_id": dept["id"],
+            "section_id": sec["id"],
+        },
+    )
+    student = stu_res.get_json()["student"]
+    course = client.post(
+        "/api/admin/courses",
+        json={
+            "code": "EC101",
+            "name": "Circuits",
+            "credits": 4,
+            "department_id": dept["id"],
+            "faculty_id": fac_id,
+        },
+    ).get_json()["course"]
+    client.post(
+        f"/api/admin/courses/{course['id']}/enrollments",
+        json={"student_ids": [student["id"]]},
+    )
     client.post("/api/auth/logout")
 
-    # 2. Out-of-range marks rejected on marks API
+    # 2. Out-of-range marks rejected on real faculty marks API (SRS-SR-007, SRS-F-019)
     login(client, "faculty@pes.edu")
-    bad_marks_res = client.post(
-        "/api/marks/validate",
-        json={"isa1": 25, "assessment": 9, "esa": 40},
+    bad_marks_res = client.put(
+        f"/api/faculty/marks/{course['id']}/{student['id']}",
+        json={"isa1": 25, "assessment": 9},
     )
     assert bad_marks_res.status_code == 400
     assert "ISA-1 must be between 0 and 20" in bad_marks_res.get_json()["error"]
 
-    valid_marks_res = client.post(
-        "/api/marks/validate",
-        json={"isa1": 18, "isa2": 17, "assessment": 9, "esa": 40},
+    valid_marks_res = client.put(
+        f"/api/faculty/marks/{course['id']}/{student['id']}",
+        json={"isa1": 18, "isa2": 17, "assessment": 9},
     )
     assert valid_marks_res.status_code == 200
-    assert valid_marks_res.get_json()["validated"]["isa1"] == 18.0
+    assert valid_marks_res.get_json()["marks"]["isa1"] == 18.0
 
 
 def test_tc_sec_04_gitignore_and_credentials_safety():
