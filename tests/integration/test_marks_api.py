@@ -99,22 +99,13 @@ def test_tc_mrk_01_faculty_saves_valid_marks(client, marks_api_setup):
     assert marks_data["esa"] == 44.5
     assert marks_data["total"] == 89.0
 
-    # Also test legacy alias /api/marks/<course_id>/<student_id>
-    alias_res = client.put(
-        f"/api/marks/{course_id}/{student1_id}",
-        json={"isa1": 19.0, "isa2": 17.0, "assessment": 9.0, "esa": 44.5},
-    )
-    assert alias_res.status_code == 200
-    assert alias_res.get_json()["marks"]["isa1"] == 19.0
-    assert alias_res.get_json()["marks"]["total"] == 89.5
-
     # Check course marks list
     list_res = client.get(f"/api/faculty/marks/{course_id}")
     assert list_res.status_code == 200
     students_list = list_res.get_json()["students"]
     assert len(students_list) == 2
     s1 = next(s for s in students_list if s["student_id"] == student1_id)
-    assert s1["isa1"] == 19.0
+    assert s1["isa1"] == 18.5
     assert s1["is_esa_registered"] is True
 
 
@@ -141,7 +132,7 @@ def test_tc_mrk_02_invalid_or_out_of_bounds_marks_rejected(client, marks_api_set
 
 
 def test_tc_mrk_03_esa_marks_only_for_esa_registered_students(client, marks_api_setup):
-    """TC-MRK-03: Entering ESA marks for student not registered for ESA is rejected with 400."""
+    """TC-MRK-03: ESA marks for a student not registered for ESA -> HTTP 409, nothing saved."""
     course_id = marks_api_setup["course_id"]
     student1_id = marks_api_setup["student1_id"]
     student2_id = marks_api_setup["student2_id"]
@@ -150,8 +141,14 @@ def test_tc_mrk_03_esa_marks_only_for_esa_registered_students(client, marks_api_
 
     # Student 2 is NOT registered for ESA
     res_s2 = client.put(f"/api/faculty/marks/{course_id}/{student2_id}", json={"esa": 35.0})
-    assert res_s2.status_code == 400
+    assert res_s2.status_code == 409
     assert "not registered for ESA" in res_s2.get_json()["error"]
+
+    # Nothing saved for student 2
+    roster = client.get(f"/api/faculty/marks/{course_id}").get_json()["students"]
+    s2 = next(s for s in roster if s["student_id"] == student2_id)
+    assert s2["esa"] is None
+    assert s2["total"] is None
 
     # Student 2 CAN receive internal marks
     res_s2_isa = client.put(f"/api/faculty/marks/{course_id}/{student2_id}", json={"isa1": 16.0})
@@ -201,10 +198,32 @@ def test_tc_aud_01_marks_change_creates_audit_log_entry(client, marks_api_setup)
         None,
     )
     assert marks_log is not None
-    assert marks_log["old_value"] == "15.0"
-    assert marks_log["new_value"] == "18.0"
+    assert marks_log["old_value"] == "ISA-1: 15.0"
+    assert marks_log["new_value"] == "ISA-1: 18.0"
     assert marks_log["user_email"] == marks_api_setup["faculty1_email"]
     assert marks_log["timestamp"] is not None
+
+
+def test_tc_aud_01_swapped_marks_logged_even_if_total_same(client, marks_api_setup):
+    """TC-AUD-01: Two marks change but the total stays the same -> one audit row per mark."""
+    course_id = marks_api_setup["course_id"]
+    student1_id = marks_api_setup["student1_id"]
+    url = f"/api/faculty/marks/{course_id}/{student1_id}"
+
+    login(client, marks_api_setup["faculty1_email"])
+    assert client.put(url, json={"isa1": 15.0, "isa2": 18.0}).status_code == 200
+    res = client.put(url, json={"isa1": 18.0, "isa2": 15.0})
+    assert res.status_code == 200
+    assert res.get_json()["marks"]["total"] == 33.0
+    client.post("/api/auth/logout")
+
+    login(client, "admin@pes.edu")
+    logs = client.get("/api/admin/audit-log?entity=marks").get_json()["audit_log"]
+    changes = {(log["old_value"], log["new_value"]) for log in logs}
+    assert changes == {
+        ("ISA-1: 15.0", "ISA-1: 18.0"),
+        ("ISA-2: 18.0", "ISA-2: 15.0"),
+    }
 
 
 def test_unauthorized_access_to_marks_api(client, marks_api_setup):

@@ -8,7 +8,7 @@ from src.extensions import db
 from src.models import AuditLog, Enrollment, ExamRegistration, Marks
 from src.services.course_service import course_roster
 from src.services.seed_service import atomic_transaction
-from src.validators import ValidationError, validate_marks_dict
+from src.validators import MARK_COMPONENTS, ValidationError, validate_marks_dict
 
 
 class MarksError(Exception):
@@ -68,7 +68,7 @@ def _check_esa_registration(course_id, student_id, validated):
         )
         if not is_registered:
             raise MarksError(
-                "Cannot enter ESA marks for a student who is not registered for ESA.", 400
+                "Cannot enter ESA marks for a student who is not registered for ESA.", 409
             )
 
 
@@ -77,6 +77,12 @@ def _compute_total(mark_rec):
     comps = [mark_rec.isa1, mark_rec.isa2, mark_rec.assessment, mark_rec.esa]
     valid = [c for c in comps if c is not None]
     return round(sum(valid), 2) if valid else None
+
+
+def _audit_value(comp, value):
+    """Format one mark for the audit log, e.g. 'ISA-1: 15.0' (or 'ISA-1: empty')."""
+    shown = "empty" if value is None else str(value)
+    return f"{MARK_COMPONENTS[comp]['name']}: {shown}"
 
 
 def save_student_marks(course, user, student_id, marks_data, before_commit_hook=None):
@@ -97,29 +103,34 @@ def save_student_marks(course, user, student_id, marks_data, before_commit_hook=
     with atomic_transaction():
         mark_rec = Marks.query.filter_by(course_id=course.id, student_id=student_id).first()
         is_new = mark_rec is None
-        old_total = None if is_new else mark_rec.total
 
         if is_new:
             mark_rec = Marks(student_id=student_id, course_id=course.id)
             db.session.add(mark_rec)
 
+        changes = []
         for comp in ("isa1", "isa2", "assessment", "esa"):
             if comp in validated:
-                setattr(mark_rec, comp, validated[comp])
+                old_value = getattr(mark_rec, comp)
+                new_value = validated[comp]
+                if not is_new and old_value is not None and old_value != new_value:
+                    changes.append((comp, old_value, new_value))
+                setattr(mark_rec, comp, new_value)
 
         mark_rec.total = _compute_total(mark_rec)
         db.session.flush()
 
-        # Audit logging on mark changes (SRS-F-025, TC-AUD-01)
-        if not is_new and old_total is not None and old_total != mark_rec.total:
+        # One audit row per changed mark, with that mark's old and new value
+        # (SRS-F-025, TC-AUD-01). First-time entries are not "changes".
+        for comp, old_value, new_value in changes:
             db.session.add(
                 AuditLog(
                     user_id=user.id,
                     action="marks changed",
                     entity="marks",
                     entity_id=f"{course.id}:{student_id}",
-                    old_value=str(old_total),
-                    new_value=str(mark_rec.total),
+                    old_value=_audit_value(comp, old_value),
+                    new_value=_audit_value(comp, new_value),
                 )
             )
 

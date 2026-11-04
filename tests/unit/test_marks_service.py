@@ -117,8 +117,12 @@ def test_tc_mrk_03_esa_marks_requires_registration(marks_setup):
     faculty = marks_setup["faculty"]
     student2 = marks_setup["student2"]
 
-    with pytest.raises(MarksError, match="not registered for ESA"):
+    with pytest.raises(MarksError, match="not registered for ESA") as exc:
         marks_service.save_student_marks(course, faculty, student2.id, {"esa": 42.0})
+    assert exc.value.status_code == 409
+
+    # Nothing saved for student 2
+    assert Marks.query.filter_by(course_id=course.id, student_id=student2.id).first() is None
 
     # But ISA marks succeed for student 2
     saved = marks_service.save_student_marks(course, faculty, student2.id, {"isa1": 17.0})
@@ -127,7 +131,7 @@ def test_tc_mrk_03_esa_marks_requires_registration(marks_setup):
 
 
 def test_tc_aud_01_marks_change_creates_audit_log(marks_setup):
-    """TC-AUD-01: Changing a saved mark writes an AuditLog row with old and new total."""
+    """TC-AUD-01: Changing a saved mark writes an AuditLog row with that mark's old/new value."""
     course = marks_setup["course"]
     faculty = marks_setup["faculty"]
     student1 = marks_setup["student1"]
@@ -144,9 +148,48 @@ def test_tc_aud_01_marks_change_creates_audit_log(marks_setup):
     assert log.action == "marks changed"
     assert log.entity == "marks"
     assert log.entity_id == f"{course.id}:{student1.id}"
-    assert log.old_value == "15.0"
-    assert log.new_value == "18.0"
+    assert log.old_value == "ISA-1: 15.0"
+    assert log.new_value == "ISA-1: 18.0"
     assert log.user_id == faculty.id
+    assert log.timestamp is not None
+
+
+def test_tc_aud_01_total_unchanged_still_logs_each_changed_mark(marks_setup):
+    """TC-AUD-01: ISA-1 15->18 and ISA-2 18->15 keep the total same but write 2 audit rows."""
+    course = marks_setup["course"]
+    faculty = marks_setup["faculty"]
+    student1 = marks_setup["student1"]
+
+    marks_service.save_student_marks(
+        course, faculty, student1.id, {"isa1": 15.0, "isa2": 18.0, "assessment": 9.0}
+    )
+    saved = marks_service.save_student_marks(
+        course, faculty, student1.id, {"isa1": 18.0, "isa2": 15.0, "assessment": 9.0}
+    )
+    assert saved.total == 42.0  # total did not change
+
+    logs = AuditLog.query.order_by(AuditLog.id).all()
+    # One row per changed mark; the unchanged Assessment mark is not logged
+    assert [(log.old_value, log.new_value) for log in logs] == [
+        ("ISA-1: 15.0", "ISA-1: 18.0"),
+        ("ISA-2: 18.0", "ISA-2: 15.0"),
+    ]
+    assert all(log.action == "marks changed" for log in logs)
+    assert all(log.user_id == faculty.id for log in logs)
+
+
+def test_clearing_a_mark_is_logged(marks_setup):
+    """TC-AUD-01: Removing a saved mark (set to null) is also a change and is logged."""
+    course = marks_setup["course"]
+    faculty = marks_setup["faculty"]
+    student1 = marks_setup["student1"]
+
+    marks_service.save_student_marks(course, faculty, student1.id, {"isa1": 15.0})
+    marks_service.save_student_marks(course, faculty, student1.id, {"isa1": None})
+
+    log = AuditLog.query.one()
+    assert log.old_value == "ISA-1: 15.0"
+    assert log.new_value == "ISA-1: empty"
 
 
 def test_unassigned_faculty_cannot_view_or_save_marks(marks_setup):

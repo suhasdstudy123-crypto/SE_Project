@@ -113,7 +113,7 @@ describe("Faculty Enter Marks Page (Issue #15: SRS-F-019)", () => {
   it("shows server error when saving fails", async () => {
     marksApi.saveStudentMarks.mockRejectedValue({
       response: {
-        status: 400,
+        status: 409,
         data: { error: "Cannot enter ESA marks for unregistered student." },
       },
     });

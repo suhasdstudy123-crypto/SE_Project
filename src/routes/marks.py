@@ -10,15 +10,11 @@ from src.services.marks_service import MarksError
 from src.validators import ValidationError
 
 faculty_marks_bp = Blueprint("faculty_marks", __name__, url_prefix="/api/faculty/marks")
-legacy_marks_bp = Blueprint("legacy_marks", __name__, url_prefix="/api/marks")
 
 
 @faculty_marks_bp.errorhandler(MarksError)
 @faculty_marks_bp.errorhandler(CourseError)
 @faculty_marks_bp.errorhandler(ValidationError)
-@legacy_marks_bp.errorhandler(MarksError)
-@legacy_marks_bp.errorhandler(CourseError)
-@legacy_marks_bp.errorhandler(ValidationError)
 def marks_error_handler(error):
     """Format service and validation errors as JSON."""
     return jsonify({"error": error.message}), error.status_code
@@ -34,7 +30,6 @@ def get_course_marks_endpoint(course_id):
 
 
 @faculty_marks_bp.put("/<int:course_id>/<int:student_id>")
-@legacy_marks_bp.put("/<int:course_id>/<int:student_id>")
 @faculty_required
 def save_student_marks_endpoint(course_id, student_id):
     """Save or update marks for a student in a course (SRS-F-019, SRS-F-025)."""
