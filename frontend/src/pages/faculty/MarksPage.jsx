@@ -4,12 +4,32 @@ import * as coursesApi from "../../api/courses.js";
 import { apiErrorMessage } from "../../api/errors.js";
 import * as marksApi from "../../api/marks.js";
 
+// Faculty Enter Marks page (SRS-F-019, SRS-F-020, SRS-F-025, issues #15 & #16).
+// Limits: ISA-1 (20), ISA-2 (20), Assessment (10), ESA (50). Total max 100.
+// Auto-calculates Grade (S/A/B/C/D/E/F) based on PES grading scale.
 const LIMITS = {
-  isa1: { name: "ISA-1", min: 0, max: 20 },
-  isa2: { name: "ISA-2", min: 0, max: 20 },
-  assessment: { name: "Assessment", min: 0, max: 10 },
-  esa: { name: "ESA", min: 0, max: 50 },
+  isa1: { max: 20, label: "ISA-1" },
+  isa2: { max: 20, label: "ISA-2" },
+  assessment: { max: 10, label: "Assessment" },
+  esa: { max: 50, label: "ESA" },
 };
+
+// Same rule as the backend: no grade until all four marks are entered.
+function computeGrade(student) {
+  if (student.grade) return student.grade;
+  const missing = Object.keys(LIMITS).some(
+    (field) => student[field] === null || student[field] === undefined || student[field] === "",
+  );
+  if (missing) return "—";
+  const total = student.total;
+  if (total >= 90) return "S";
+  if (total >= 80) return "A";
+  if (total >= 70) return "B";
+  if (total >= 60) return "C";
+  if (total >= 50) return "D";
+  if (total >= 40) return "E";
+  return "F";
+}
 
 export default function MarksPage() {
   const [courses, setCourses] = useState([]);
@@ -26,10 +46,13 @@ export default function MarksPage() {
     coursesApi
       .listMyCourses("faculty")
       .then((mine) => {
-        setCourses(mine);
-        if (mine.length > 0) setCourseId(String(mine[0].id));
+        const list = mine || [];
+        setCourses(list);
+        if (list.length > 0) {
+          setCourseId(String(list[0].id));
+        }
       })
-      .catch((err) => setError(apiErrorMessage(err)))
+      .catch((err) => setError(apiErrorMessage(err, "Failed to load courses.")))
       .finally(() => setLoadingCourses(false));
   }, []);
 
@@ -39,35 +62,34 @@ export default function MarksPage() {
     setError("");
     setMessage("");
     setFieldErrors({});
+
     marksApi
       .getCourseMarks(courseId)
-      .then((data) => setStudents(data.students || []))
+      .then((data) => {
+        setStudents(data.students || []);
+      })
       .catch((err) => {
         setStudents([]);
-        setError(apiErrorMessage(err, "Could not load marks."));
+        setError(apiErrorMessage(err, "Failed to load marks."));
       })
       .finally(() => setLoadingMarks(false));
   }, [courseId]);
 
   function handleFieldChange(studentId, field, value) {
-    const errorKey = `${studentId}_${field}`;
-    let errorText = "";
-
-    if (value !== "" && value !== null && value !== undefined) {
-      const num = Number(value);
-      const conf = LIMITS[field];
-      if (Number.isNaN(num)) {
-        errorText = "Must be a number";
-      } else if (num < conf.min || num > conf.max) {
-        errorText = `Max ${conf.max}`;
-      }
-    }
+    const lim = LIMITS[field];
+    const num = Number(value);
 
     setFieldErrors((prev) => {
-      const next = { ...prev };
-      if (errorText) next[errorKey] = errorText;
-      else delete next[errorKey];
-      return next;
+      const copy = { ...prev };
+      const key = `${studentId}_${field}`;
+      if (value !== "" && Number.isNaN(num)) {
+        copy[key] = "Must be a number";
+      } else if (value !== "" && (num < 0 || num > lim.max)) {
+        copy[key] = `Max ${lim.max}`;
+      } else {
+        delete copy[key];
+      }
+      return copy;
     });
 
     setStudents((prev) =>
@@ -80,6 +102,7 @@ export default function MarksPage() {
           .filter((c) => c !== null && c !== undefined && c !== "" && !Number.isNaN(Number(c)))
           .map(Number);
         updated.total = validComps.length > 0 ? validComps.reduce((a, b) => a + b, 0) : null;
+        updated.grade = null; // Recompute live grade from updated total
         return updated;
       }),
     );
@@ -166,13 +189,16 @@ export default function MarksPage() {
               <thead>
                 <tr>
                   <th style={{ width: "16%" }}>SRN</th>
-                  <th style={{ width: "20%" }}>Name</th>
-                  <th style={{ width: "12%" }}>ISA-1 (20)</th>
-                  <th style={{ width: "12%" }}>ISA-2 (20)</th>
-                  <th style={{ width: "12%" }}>Assessment (10)</th>
-                  <th style={{ width: "14%" }}>ESA (50)</th>
-                  <th style={{ width: "8%" }} className="text-center">
+                  <th style={{ width: "18%" }}>Name</th>
+                  <th style={{ width: "11%" }}>ISA-1 (20)</th>
+                  <th style={{ width: "11%" }}>ISA-2 (20)</th>
+                  <th style={{ width: "11%" }}>Assessment (10)</th>
+                  <th style={{ width: "13%" }}>ESA (50)</th>
+                  <th style={{ width: "7%" }} className="text-center">
                     Total
+                  </th>
+                  <th style={{ width: "7%" }} className="text-center">
+                    Grade
                   </th>
                   <th style={{ width: "6%" }} className="text-center">
                     Action
@@ -264,6 +290,7 @@ export default function MarksPage() {
                           ? student.total
                           : "—"}
                       </td>
+                      <td className="text-center fw-bold text-primary">{computeGrade(student)}</td>
                       <td className="text-center">
                         <Button
                           size="sm"

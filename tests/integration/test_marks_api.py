@@ -53,13 +53,15 @@ def marks_api_setup(app, make_user):
             Student(
                 srn=f"PES1UG24AM{i:03d}",
                 name=f"Student {i}",
-                email=f"stu{i}@pes.edu",
+                email=f"stu{i}@pes.edu" if i != 1 else "student1@pes.edu",
                 semester=4,
                 department_id=dept.id,
                 section_id=sec.id,
             )
             for i in (1, 2, 3)
         ]
+        student_user = User.query.filter_by(email="student1@pes.edu").one()
+        students[0].user_id = student_user.id
         db.session.add_all(students)
         db.session.flush()
 
@@ -265,3 +267,138 @@ def test_non_enrolled_student_marks_rejected_with_400(client, marks_api_setup):
     res = client.put(f"/api/faculty/marks/{course_id}/{student3_id}", json={"isa1": 15.0})
     assert res.status_code == 400
     assert "not enrolled" in res.get_json()["error"]
+
+
+def test_tc_mrk_04_save_marks_persists_grade_and_grade_points(client, marks_api_setup):
+    """TC-MRK-04: Saving marks calculates and persists letter grade and grade point."""
+    course_id = marks_api_setup["course_id"]
+    student1_id = marks_api_setup["student1_id"]
+
+    login(client, marks_api_setup["faculty1_email"])
+
+    # 1. Grade S (>= 90)
+    res_s = client.put(
+        f"/api/faculty/marks/{course_id}/{student1_id}",
+        json={"isa1": 20.0, "isa2": 19.0, "assessment": 10.0, "esa": 45.0},
+    )
+    assert res_s.status_code == 200
+    marks_s = res_s.get_json()["marks"]
+    assert marks_s["total"] == 94.0
+    assert marks_s["grade"] == "S"
+    assert marks_s["grade_point"] == 10
+
+    # 2. Grade A (80-89)
+    res_a = client.put(
+        f"/api/faculty/marks/{course_id}/{student1_id}",
+        json={"isa1": 18.0, "isa2": 18.0, "assessment": 8.0, "esa": 40.0},
+    )
+    assert res_a.status_code == 200
+    marks_a = res_a.get_json()["marks"]
+    assert marks_a["total"] == 84.0
+    assert marks_a["grade"] == "A"
+    assert marks_a["grade_point"] == 9
+
+    # 3. Grade F (< 40)
+    res_f = client.put(
+        f"/api/faculty/marks/{course_id}/{student1_id}",
+        json={"isa1": 10.0, "isa2": 10.0, "assessment": 5.0, "esa": 10.0},
+    )
+    assert res_f.status_code == 200
+    marks_f = res_f.get_json()["marks"]
+    assert marks_f["total"] == 35.0
+    assert marks_f["grade"] == "F"
+    assert marks_f["grade_point"] == 0
+
+
+def test_student_results_view_with_sgpa(client, marks_api_setup):
+    """SRS-F-020: Student views results with component marks, letter grades, and SGPA."""
+    course_id = marks_api_setup["course_id"]
+    student1_id = marks_api_setup["student1_id"]
+
+    # 1. Faculty sets marks for student 1 (total 90 -> Grade S, grade_point 10, credits 4)
+    login(client, marks_api_setup["faculty1_email"])
+    save_res = client.put(
+        f"/api/faculty/marks/{course_id}/{student1_id}",
+        json={"isa1": 18.0, "isa2": 18.0, "assessment": 9.0, "esa": 45.0},
+    )
+    assert save_res.status_code == 200
+    client.post("/api/auth/logout")
+
+    # 2. Student 1 logs in and views results
+    login(client, "student1@pes.edu")
+    results_res = client.get("/api/student/results")
+    assert results_res.status_code == 200
+    data = results_res.get_json()
+
+    assert data["student"]["email"] == "student1@pes.edu"
+    assert len(data["courses"]) >= 1
+
+    c1 = next(c for c in data["courses"] if c["course_id"] == course_id)
+    assert c1["code"] == "UE24AM241A"
+    assert c1["credits"] == 4
+    assert c1["total"] == 90.0
+    assert c1["grade"] == "S"
+    assert c1["grade_point"] == 10
+    assert data["sgpa"] == 10.0
+    assert data["total_credits"] == 4
+    assert data["earned_credits"] == 4
+
+
+def test_tc_mrk_06_student_sees_only_own_results(client, app, make_user, marks_api_setup):
+    """TC-MRK-06 / SRS-F-021: Each student sees only their own results.
+
+    The results URL has no student id (identity comes from the login session),
+    so there is no "other student's URL" to request (see docs/DEVIATIONS.md).
+    """
+    course_id = marks_api_setup["course_id"]
+    student1_id = marks_api_setup["student1_id"]
+    student2_id = marks_api_setup["student2_id"]
+
+    # Give student 2 a login account too
+    make_user("student", email="stu2@pes.edu")
+    with app.app_context():
+        student2_user = User.query.filter_by(email="stu2@pes.edu").one()
+        db.session.get(Student, student2_id).user_id = student2_user.id
+        db.session.commit()
+
+    # Faculty enters different marks for the two students
+    login(client, marks_api_setup["faculty1_email"])
+    url = f"/api/faculty/marks/{course_id}"
+    payload = {"isa1": 18.0, "isa2": 18.0, "assessment": 9.0, "esa": 45.0}
+    assert client.put(f"{url}/{student1_id}", json=payload).status_code == 200
+    assert client.put(f"{url}/{student2_id}", json={"isa1": 12.0}).status_code == 200
+    client.post("/api/auth/logout")
+
+    # Student A (student 1) opens own results -> 200, own marks only
+    login(client, "student1@pes.edu")
+    res_a = client.get("/api/student/results")
+    assert res_a.status_code == 200
+    data_a = res_a.get_json()
+    assert data_a["student"]["email"] == "student1@pes.edu"
+    assert [c["total"] for c in data_a["courses"]] == [90.0]
+    # There is no URL for another student's results
+    assert client.get(f"/api/student/results/{student2_id}").status_code == 404
+    client.post("/api/auth/logout")
+
+    # Student B (student 2) opens own results -> 200, never student A's marks
+    login(client, "stu2@pes.edu")
+    res_b = client.get("/api/student/results")
+    assert res_b.status_code == 200
+    data_b = res_b.get_json()
+    assert data_b["student"]["email"] == "stu2@pes.edu"
+    assert [(c["isa1"], c["total"], c["grade"]) for c in data_b["courses"]] == [(12.0, 12.0, None)]
+
+
+def test_student_results_rbac(client, marks_api_setup):
+    """Student results endpoint requires student login (401 unauth, 403 non-student)."""
+    # 1. Unauthenticated -> 401
+    assert client.get("/api/student/results").status_code == 401
+
+    # 2. Admin -> 403
+    login(client, "admin@pes.edu")
+    assert client.get("/api/student/results").status_code == 403
+    client.post("/api/auth/logout")
+
+    # 3. Faculty -> 403
+    login(client, marks_api_setup["faculty1_email"])
+    assert client.get("/api/student/results").status_code == 403

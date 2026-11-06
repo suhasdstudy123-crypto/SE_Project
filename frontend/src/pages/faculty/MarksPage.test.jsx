@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as coursesApi from "../../api/courses.js";
 import * as marksApi from "../../api/marks.js";
@@ -65,6 +65,20 @@ describe("Faculty Enter Marks Page (Issue #15: SRS-F-019)", () => {
     // Student 2 is NOT registered for ESA
     expect(screen.getByText("PES1UG24AM002")).toBeInTheDocument();
     expect(screen.getByText("Not Registered")).toBeInTheDocument();
+  });
+
+  it("shows a grade only when all four marks are entered (SRS-F-020)", async () => {
+    render(<MarksPage />);
+    await screen.findByText("PES1UG24AM001");
+
+    // Student 1 has all four marks (total 89) -> A
+    const row1 = screen.getByText("PES1UG24AM001").closest("tr");
+    expect(within(row1).getByText("A")).toBeInTheDocument();
+
+    // Student 2 has no ESA mark (total 37) -> no grade, not "F"
+    const row2 = screen.getByText("PES1UG24AM002").closest("tr");
+    expect(within(row2).queryByText("F")).not.toBeInTheDocument();
+    expect(within(row2).getAllByText("—").length).toBeGreaterThan(0);
   });
 
   it("shows inline validation error and disables Save button on exceeding max limit", async () => {
