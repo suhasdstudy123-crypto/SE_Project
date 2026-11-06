@@ -310,8 +310,8 @@ def test_tc_mrk_04_save_marks_persists_grade_and_grade_points(client, marks_api_
     assert marks_f["grade_point"] == 0
 
 
-def test_tc_mrk_05_student_results_and_sgpa(client, marks_api_setup):
-    """TC-MRK-05: Student views results with component marks, letter grades, and SGPA."""
+def test_student_results_view_with_sgpa(client, marks_api_setup):
+    """SRS-F-020: Student views results with component marks, letter grades, and SGPA."""
     course_id = marks_api_setup["course_id"]
     student1_id = marks_api_setup["student1_id"]
 
@@ -343,10 +343,50 @@ def test_tc_mrk_05_student_results_and_sgpa(client, marks_api_setup):
     assert data["total_credits"] == 4
     assert data["earned_credits"] == 4
 
-    # Also test /api/student/marks alias
-    alias_res = client.get("/api/student/marks")
-    assert alias_res.status_code == 200
-    assert alias_res.get_json()["sgpa"] == 10.0
+
+def test_tc_mrk_06_student_sees_only_own_results(client, app, make_user, marks_api_setup):
+    """TC-MRK-06 / SRS-F-021: Each student sees only their own results.
+
+    The results URL has no student id (identity comes from the login session),
+    so there is no "other student's URL" to request (see docs/DEVIATIONS.md).
+    """
+    course_id = marks_api_setup["course_id"]
+    student1_id = marks_api_setup["student1_id"]
+    student2_id = marks_api_setup["student2_id"]
+
+    # Give student 2 a login account too
+    make_user("student", email="stu2@pes.edu")
+    with app.app_context():
+        student2_user = User.query.filter_by(email="stu2@pes.edu").one()
+        db.session.get(Student, student2_id).user_id = student2_user.id
+        db.session.commit()
+
+    # Faculty enters different marks for the two students
+    login(client, marks_api_setup["faculty1_email"])
+    url = f"/api/faculty/marks/{course_id}"
+    payload = {"isa1": 18.0, "isa2": 18.0, "assessment": 9.0, "esa": 45.0}
+    assert client.put(f"{url}/{student1_id}", json=payload).status_code == 200
+    assert client.put(f"{url}/{student2_id}", json={"isa1": 12.0}).status_code == 200
+    client.post("/api/auth/logout")
+
+    # Student A (student 1) opens own results -> 200, own marks only
+    login(client, "student1@pes.edu")
+    res_a = client.get("/api/student/results")
+    assert res_a.status_code == 200
+    data_a = res_a.get_json()
+    assert data_a["student"]["email"] == "student1@pes.edu"
+    assert [c["total"] for c in data_a["courses"]] == [90.0]
+    # There is no URL for another student's results
+    assert client.get(f"/api/student/results/{student2_id}").status_code == 404
+    client.post("/api/auth/logout")
+
+    # Student B (student 2) opens own results -> 200, never student A's marks
+    login(client, "stu2@pes.edu")
+    res_b = client.get("/api/student/results")
+    assert res_b.status_code == 200
+    data_b = res_b.get_json()
+    assert data_b["student"]["email"] == "stu2@pes.edu"
+    assert [(c["isa1"], c["total"], c["grade"]) for c in data_b["courses"]] == [(12.0, 12.0, None)]
 
 
 def test_student_results_rbac(client, marks_api_setup):

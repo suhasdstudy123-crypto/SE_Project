@@ -129,8 +129,8 @@ export default function StudentResultsPage() {
             <tbody>
               {courses.map((c) => (
                 <tr key={c.course_id}>
-                  <td className="fw-semibold">{c.code || c.course_code}</td>
-                  <td>{c.name || c.course_name}</td>
+                  <td className="fw-semibold">{c.code}</td>
+                  <td>{c.name}</td>
                   <td className="text-center">{c.credits}</td>
                   <td className="text-center">{c.isa1 !== null ? c.isa1 : "—"}</td>
                   <td className="text-center">{c.isa2 !== null ? c.isa2 : "—"}</td>

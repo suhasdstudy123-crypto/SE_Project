@@ -82,6 +82,17 @@ def calculate_sgpa(records):
     return round(total_points / total_credits, 2)
 
 
+def grade_for_marks(mark_rec):
+    """Grade and grade point for a marks record, only once all 4 marks are entered (SRS-F-020).
+
+    A course with any mark still missing (e.g. only ISA-1 entered, or no ESA yet)
+    gets no grade, so it is not shown as F and does not count in the SGPA.
+    """
+    if mark_rec is None or any(getattr(mark_rec, comp) is None for comp in MARK_COMPONENTS):
+        return None, None
+    return calculate_grade_and_points(mark_rec.total)
+
+
 def get_course_marks(course, user):
     """Return enrolled students with marks, computed grades, and ESA status."""
     check_assigned_faculty(course, user)
@@ -174,7 +185,7 @@ def save_student_marks(course, user, student_id, marks_data, before_commit_hook=
                 setattr(mark_rec, comp, new_value)
 
         mark_rec.total = _compute_total(mark_rec)
-        mark_rec.grade, mark_rec.grade_point = calculate_grade_and_points(mark_rec.total)
+        mark_rec.grade, mark_rec.grade_point = grade_for_marks(mark_rec)
         db.session.flush()
 
         # One audit row per changed mark, with that mark's old and new value
@@ -201,18 +212,12 @@ def _build_course_result(enrollment, marks_by_course):
     """Format single course result dict and return (result_dict, sgpa_tuple)."""
     course = enrollment.course
     mark_rec = marks_by_course.get(course.id)
-    grade = mark_rec.grade if mark_rec else None
-    grade_point = mark_rec.grade_point if mark_rec else None
-
-    if mark_rec and mark_rec.total is not None and grade is None:
-        grade, grade_point = calculate_grade_and_points(mark_rec.total)
+    grade, grade_point = grade_for_marks(mark_rec)
 
     sgpa_item = (course.credits, grade_point) if grade_point is not None else None
     data = {
         "course_id": course.id,
-        "course_code": course.code,
         "code": course.code,
-        "course_name": course.name,
         "name": course.name,
         "credits": course.credits,
         "isa1": mark_rec.isa1 if mark_rec else None,

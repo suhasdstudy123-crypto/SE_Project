@@ -244,6 +244,7 @@ def test_tc_mrk_04_grade_assignment():
         (100.0, ("S", 10)),
         (90.0, ("S", 10)),
         (89.9, ("A", 9)),
+        (89.0, ("A", 9)),
         (80.0, ("A", 9)),
         (79.9, ("B", 8)),
         (70.0, ("B", 8)),
@@ -252,8 +253,10 @@ def test_tc_mrk_04_grade_assignment():
         (59.9, ("D", 6)),
         (50.0, ("D", 6)),
         (49.9, ("E", 5)),
+        (49.0, ("E", 5)),
         (40.0, ("E", 5)),
         (39.9, ("F", 0)),
+        (39.0, ("F", 0)),
         (0.0, ("F", 0)),
         (-5.0, ("F", 0)),
         (None, (None, None)),
@@ -299,6 +302,54 @@ def test_tc_mrk_05_sgpa_calculation():
     # Empty or all ungraded returns None
     assert marks_service.calculate_sgpa([]) is None
     assert marks_service.calculate_sgpa([(4, None), (3, None)]) is None
+
+
+def test_no_grade_until_all_four_marks_entered(marks_setup):
+    """SRS-F-020: A course with a missing mark gets no grade and is left out of the SGPA."""
+    course = marks_setup["course"]
+    faculty = marks_setup["faculty"]
+    student1 = marks_setup["student1"]
+
+    # Only ISA-1 entered: total 18, but no grade (not "F")
+    rec = marks_service.save_student_marks(course, faculty, student1.id, {"isa1": 18.0})
+    assert rec.total == 18.0
+    assert rec.grade is None
+    assert rec.grade_point is None
+
+    # Second course fully marked: total 100 -> S
+    course2 = Course(
+        code="UE24AM302",
+        name="Deep Learning",
+        credits=4,
+        department_id=course.department_id,
+        faculty_id=faculty.id,
+    )
+    db.session.add(course2)
+    db.session.flush()
+    db.session.add(Enrollment(student_id=student1.id, course_id=course2.id))
+    db.session.add(ExamRegistration(student_id=student1.id, course_id=course2.id))
+    db.session.commit()
+    marks_service.save_student_marks(
+        course2, faculty, student1.id, {"isa1": 20, "isa2": 20, "assessment": 10, "esa": 50}
+    )
+
+    user = create_user("s1_partial@pes.edu", "Student One", TEST_PASSWORD, "student")
+    student1.user_id = user.id
+    db.session.commit()
+
+    res = marks_service.get_student_results(user)
+    grades = {c["code"]: c["grade"] for c in res["courses"]}
+    assert grades == {"UE24AM301": None, "UE24AM302": "S"}
+    # SGPA uses only the fully graded course (10.0), not dragged down to 5.0
+    assert res["sgpa"] == 10.0
+    assert res["earned_credits"] == 4
+
+    # Entering the remaining marks gives the grade
+    rec = marks_service.save_student_marks(
+        course, faculty, student1.id, {"isa2": 18.0, "assessment": 9.0, "esa": 45.0}
+    )
+    assert rec.total == 90.0
+    assert (rec.grade, rec.grade_point) == ("S", 10)
 
 
 def test_get_student_results_service(marks_setup):

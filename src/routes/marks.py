@@ -47,7 +47,6 @@ def save_student_marks_endpoint(course_id, student_id):
 
 
 @student_marks_bp.get("/results")
-@student_marks_bp.get("/marks")
 @student_required
 def get_student_results_endpoint():
     """Retrieve marks, letter grades, and calculated SGPA for logged-in student (SRS-F-020)."""

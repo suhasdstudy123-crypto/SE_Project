@@ -14,10 +14,14 @@ const LIMITS = {
   esa: { max: 50, label: "ESA" },
 };
 
+// Same rule as the backend: no grade until all four marks are entered.
 function computeGrade(student) {
   if (student.grade) return student.grade;
+  const missing = Object.keys(LIMITS).some(
+    (field) => student[field] === null || student[field] === undefined || student[field] === "",
+  );
+  if (missing) return "—";
   const total = student.total;
-  if (total === null || total === undefined) return "—";
   if (total >= 90) return "S";
   if (total >= 80) return "A";
   if (total >= 70) return "B";
@@ -64,7 +68,10 @@ export default function MarksPage() {
       .then((data) => {
         setStudents(data.students || []);
       })
-      .catch((err) => setError(apiErrorMessage(err, "Failed to load marks.")))
+      .catch((err) => {
+        setStudents([]);
+        setError(apiErrorMessage(err, "Failed to load marks."));
+      })
       .finally(() => setLoadingMarks(false));
   }, [courseId]);
 
@@ -75,7 +82,9 @@ export default function MarksPage() {
     setFieldErrors((prev) => {
       const copy = { ...prev };
       const key = `${studentId}_${field}`;
-      if (value !== "" && (Number.isNaN(num) || num < 0 || num > lim.max)) {
+      if (value !== "" && Number.isNaN(num)) {
+        copy[key] = "Must be a number";
+      } else if (value !== "" && (num < 0 || num > lim.max)) {
         copy[key] = `Max ${lim.max}`;
       } else {
         delete copy[key];
