@@ -268,11 +268,10 @@ export default function StudentsPage() {
           <div className="d-flex gap-2">
             <Button
               variant="outline-primary"
-              onClick={() =>
-                downloadReport("/admin/reports/students.csv", "students.csv")              }
-              disabled={!students}
+              onClick={handleExport}
+              disabled={!students || exporting}
             >
-              Export CSV
+              {exporting ? "Exporting..." : "Export CSV"}
             </Button>
 
             <Button
