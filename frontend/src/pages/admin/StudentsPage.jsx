@@ -203,10 +203,7 @@ export default function StudentsPage() {
   async function handleExport() {
     setExporting(true);
     try {
-      await downloadReport(
-        "/admin/reports/students.csv",
-        "students.csv",
-      );
+      await downloadReport("/admin/reports/students.csv", "students.csv");
       toast("Student report downloaded");
     } catch (error) {
       toast(apiErrorMessage(error), "danger");

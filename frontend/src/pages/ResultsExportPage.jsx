@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Alert, Button, Card, Container, Spinner } from "react-bootstrap";
 import { downloadReport } from "../api/reports.js";
@@ -16,9 +15,7 @@ export default function ResultsExportPage({ role }) {
 
     try {
       const endpoint =
-        role === "admin"
-          ? "/admin/reports/results.csv"
-          : "/faculty/reports/results.csv";
+        role === "admin" ? "/admin/reports/results.csv" : "/faculty/reports/results.csv";
 
       await downloadReport(endpoint, "results.csv");
       setMessage("Results report downloaded successfully.");

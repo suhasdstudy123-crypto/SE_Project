@@ -1,4 +1,3 @@
-
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { downloadReport } from "../api/reports.js";
@@ -17,10 +16,7 @@ describe("ResultsExportPage (Issue #23)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
 
     await waitFor(() => {
-      expect(downloadReport).toHaveBeenCalledWith(
-        "/admin/reports/results.csv",
-        "results.csv"
-      );
+      expect(downloadReport).toHaveBeenCalledWith("/admin/reports/results.csv", "results.csv");
     });
   });
 
@@ -32,10 +28,7 @@ describe("ResultsExportPage (Issue #23)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
 
     await waitFor(() => {
-      expect(downloadReport).toHaveBeenCalledWith(
-        "/faculty/reports/results.csv",
-        "results.csv"
-      );
+      expect(downloadReport).toHaveBeenCalledWith("/faculty/reports/results.csv", "results.csv");
     });
   });
 });

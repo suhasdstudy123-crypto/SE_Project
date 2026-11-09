@@ -1,4 +1,3 @@
-
 import api from "./client";
 
 // Download a CSV report using the authenticated API client.
