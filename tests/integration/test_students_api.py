@@ -230,6 +230,7 @@ def test_missing_student_returns_404(admin_client):
     )
     assert admin_client.delete("/api/admin/students/9999").status_code == 404
 
+
 def test_tc_stu_05_filter_students_by_semester(admin_client, department_and_section):
     """Admin can filter students by semester."""
     department_id, section_id = department_and_section
