@@ -8,6 +8,7 @@ export const MENU_ITEMS_BY_ROLE = {
     { label: "Fee Status", path: "/admin/fees", icon: "wallet" },
     { label: "ESA Window", path: "/admin/esa", icon: "calendar" },
     { label: "Audit Log", path: "/admin/audit", icon: "log" },
+    { label: "Results", path: "/admin/results", icon: "chart" },
   ],
   faculty: [
     { label: "Dashboard", path: "/faculty", icon: "home" },
@@ -15,6 +16,7 @@ export const MENU_ITEMS_BY_ROLE = {
     { label: "Mark Attendance", path: "/faculty/attendance", icon: "clipboard" },
     { label: "Enter Marks", path: "/faculty/marks", icon: "edit" },
     { label: "Course Analysis", path: "/faculty/reports", icon: "chart" },
+    { label: "Results", path: "/faculty/results", icon: "chart" },
   ],
   student: [
     { label: "Dashboard", path: "/student", icon: "home" },
