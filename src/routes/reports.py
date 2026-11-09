@@ -26,9 +26,7 @@ def csv_response(headers, rows, filename):
     return Response(
         output.getvalue(),
         mimetype="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -59,8 +57,16 @@ def get_results_rows(faculty_id=None):
 
 
 RESULT_HEADERS = [
-    "SRN", "Name", "Course", "ISA 1", "ISA 2",
-    "Assessment", "ESA", "Total", "Grade", "Grade Point",
+    "SRN",
+    "Name",
+    "Course",
+    "ISA 1",
+    "ISA 2",
+    "Assessment",
+    "ESA",
+    "Total",
+    "Grade",
+    "Grade Point",
 ]
 
 

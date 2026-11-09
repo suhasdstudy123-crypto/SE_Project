@@ -1,4 +1,3 @@
-
 """Integration tests for CSV report exports (Issue #23)."""
 
 import csv
@@ -22,6 +21,8 @@ from tests.conftest import TEST_PASSWORD
 
 
 CLASS_DATE = "2026-10-12"
+
+
 @pytest.fixture
 def course_setup(app, make_user):
     """Create a course with three enrolled students and two faculty members."""
@@ -64,9 +65,7 @@ def course_setup(app, make_user):
         db.session.flush()
 
         for student in students[:3]:
-            db.session.add(
-                Enrollment(student_id=student.id, course_id=course.id)
-            )
+            db.session.add(Enrollment(student_id=student.id, course_id=course.id))
 
         db.session.commit()
 
@@ -83,6 +82,7 @@ def faculty_client(app, course_setup):
     client = app.test_client()
     assert login(client, "faculty1@pes.edu").status_code == 200
     return client
+
 
 def login(client, email, password=TEST_PASSWORD):
     """Log in through the authentication API."""
@@ -144,17 +144,13 @@ def test_tc_rpt_02_admin_can_export_students(client, make_user, course_setup):
     response = client.get("/api/admin/reports/students.csv")
     rows = read_csv(response)
 
-    assert rows[0] == [
-        "SRN", "Name", "Email", "Department", "Section", "Semester"
-    ]
+    assert rows[0] == ["SRN", "Name", "Email", "Department", "Section", "Semester"]
     assert len(rows) == 5
     assert rows[1][0].startswith("PES1UG24AM")
     assert 'filename="students.csv"' in response.headers["Content-Disposition"]
 
 
-def test_tc_rpt_02_faculty_can_export_attendance(
-    app, faculty_client, report_setup
-):
+def test_tc_rpt_02_faculty_can_export_attendance(app, faculty_client, report_setup):
     """TC-RPT-02: Faculty downloads attendance for an assigned course."""
     response = faculty_client.get(
         "/api/faculty/reports/attendance.csv"
@@ -163,8 +159,12 @@ def test_tc_rpt_02_faculty_can_export_attendance(
     rows = read_csv(response)
 
     assert rows[0] == [
-        "SRN", "Name", "Course", "Date",
-        "Attendance Status", "Attendance %",
+        "SRN",
+        "Name",
+        "Course",
+        "Date",
+        "Attendance Status",
+        "Attendance %",
     ]
     assert len(rows) == 4
     assert rows[1][3] == CLASS_DATE
@@ -172,25 +172,29 @@ def test_tc_rpt_02_faculty_can_export_attendance(
     assert 'filename="attendance.csv"' in response.headers["Content-Disposition"]
 
 
-def test_tc_rpt_02_faculty_can_export_results(
-    app, faculty_client, report_setup
-):
+def test_tc_rpt_02_faculty_can_export_results(app, faculty_client, report_setup):
     """TC-RPT-02: Faculty downloads results for assigned courses."""
     response = faculty_client.get("/api/faculty/reports/results.csv")
     rows = read_csv(response)
 
     assert rows[0] == [
-        "SRN", "Name", "Course", "ISA 1", "ISA 2",
-        "Assessment", "ESA", "Total", "Grade", "Grade Point",
+        "SRN",
+        "Name",
+        "Course",
+        "ISA 1",
+        "ISA 2",
+        "Assessment",
+        "ESA",
+        "Total",
+        "Grade",
+        "Grade Point",
     ]
     assert len(rows) == 4
     assert rows[1][2] == "UE24AM241A"
     assert rows[1][7] == "91.0"
 
 
-def test_tc_rpt_02_admin_can_export_results(
-    client, make_user, report_setup
-):
+def test_tc_rpt_02_admin_can_export_results(client, make_user, report_setup):
     """TC-RPT-02: Admin downloads the results report."""
     make_user("admin")
     login(client, "admin@pes.edu")
@@ -202,9 +206,7 @@ def test_tc_rpt_02_admin_can_export_results(
     assert len(rows) == 4
 
 
-def test_faculty_cannot_export_another_facultys_attendance(
-    app, course_setup
-):
+def test_faculty_cannot_export_another_facultys_attendance(app, course_setup):
     """A faculty member cannot export another faculty member's course."""
     other = app.test_client()
     login(other, "faculty2@pes.edu")
@@ -232,9 +234,7 @@ def test_report_exports_require_login(client, url):
     assert response.status_code == 401
 
 
-def test_student_cannot_export_admin_student_report(
-    client, make_user
-):
+def test_student_cannot_export_admin_student_report(client, make_user):
     """Students cannot access the Admin report endpoint."""
     make_user("student")
     login(client, "student@pes.edu")
