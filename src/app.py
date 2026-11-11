@@ -12,6 +12,7 @@ from src.routes.audit import audit_bp
 from src.routes.auth import auth_bp
 from src.routes.courses import courses_bp
 from src.routes.departments import departments_bp
+from src.routes.reports import reports_bp
 from src.routes.fees import fees_bp
 from src.routes.health import health_bp
 from src.routes.marks import faculty_marks_bp, student_marks_bp
@@ -44,6 +45,7 @@ def create_app(config_class=Config):
     app.register_blueprint(faculty_marks_bp)
     app.register_blueprint(student_marks_bp)
     app.register_blueprint(audit_bp)
+    app.register_blueprint(reports_bp)
     register_error_handlers(app)
 
     with app.app_context():

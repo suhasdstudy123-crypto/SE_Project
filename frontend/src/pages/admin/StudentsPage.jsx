@@ -6,6 +6,7 @@ import EmptyState from "../../components/EmptyState.jsx";
 import Icon from "../../components/Icon.jsx";
 import PageHeader from "../../components/PageHeader.jsx";
 import { apiErrorMessage, useToast } from "../../components/toast.js";
+import { downloadReport } from "../../api/reports.js";
 
 const EMPTY_FORM = {
   srn: "",
@@ -199,7 +200,19 @@ export default function StudentsPage() {
   const [semesterFilter, setSemesterFilter] = useState("");
   const [editing, setEditing] = useState(null); // null = closed, {} = new, student = edit
   const [toDelete, setToDelete] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      await downloadReport("/admin/reports/students.csv", "students.csv");
+      toast("Student report downloaded");
+    } catch (error) {
+      toast(apiErrorMessage(error), "danger");
+    } finally {
+      setExporting(false);
+    }
+  }
   const load = useCallback(async () => {
     try {
       const filters = {
@@ -252,14 +265,24 @@ export default function StudentsPage() {
         title="Students"
         description="Add students, keep their details correct, and place them in a section."
         action={
-          <Button
-            className="btn-srs btn-icon"
-            onClick={() => setEditing({})}
-            disabled={!students || noDepartments}
-          >
-            <Icon name="plus" />
-            Add student
-          </Button>
+          <div className="d-flex gap-2">
+            <Button
+              variant="outline-primary"
+              onClick={handleExport}
+              disabled={!students || exporting}
+            >
+              {exporting ? "Exporting..." : "Export CSV"}
+            </Button>
+
+            <Button
+              className="btn-srs btn-icon"
+              onClick={() => setEditing({})}
+              disabled={!students || noDepartments}
+            >
+              <Icon name="plus" />
+              Add student
+            </Button>
+          </div>
         }
       />
 
