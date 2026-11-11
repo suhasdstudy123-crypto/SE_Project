@@ -231,33 +231,50 @@ def test_missing_student_returns_404(admin_client):
     assert admin_client.delete("/api/admin/students/9999").status_code == 404
 
 
-def test_tc_stu_05_filter_students_by_semester(admin_client, department_and_section):
-    """Admin can filter students by semester."""
-    department_id, section_id = department_and_section
-
-    first = create_student(
-        admin_client,
-        department_id,
-        section_id,
-        semester=3,
+def test_tc_stu_05_search_and_filter_students(admin_client, department_and_section):
+    """TC-STU-05: Search by SRN and name, filter by section and semester; empty search returns all."""
+    department_id, section_a = department_and_section
+    response = admin_client.post(
+        f"/api/departments/{department_id}/sections",
+        json={"name": "B"},
     )
-    second = create_student(
-        admin_client,
-        department_id,
-        section_id,
-        srn="PES1UG24CS002",
-        email="student2@example.com",
-        semester=5,
-    )
+    assert response.status_code == 201
+    section_b = response.get_json()["section"]["id"]
 
-    assert first.status_code == 201
-    assert second.status_code == 201
+    students = [
+        ("PES1UG24CS001", "Asha Rao", "asha@example.com", section_a, 3),
+        ("PES1UG24CS002", "Bharath Kumar", "bharath@example.com", section_b, 5),
+        ("PES1UG24CS003", "Chitra N", "chitra@example.com", section_a, 5),
+    ]
+    for srn, name, email, section_id, semester in students:
+        created = create_student(
+            admin_client,
+            department_id,
+            section_id,
+            srn=srn,
+            name=name,
+            email=email,
+            semester=semester,
+        )
+        assert created.status_code == 201
 
-    response = admin_client.get("/api/admin/students?semester=3")
+    def srns(query):
+        response = admin_client.get(f"/api/admin/students{query}")
+        assert response.status_code == 200
+        return [student["srn"] for student in response.get_json()["students"]]
 
-    assert response.status_code == 200
-    students = response.get_json()["students"]
-
-    assert len(students) == 1
-    assert students[0]["semester"] == 3
-    assert students[0]["srn"] == "PES1UG24CS001"
+    # Search by SRN
+    assert srns("?search=CS002") == ["PES1UG24CS002"]
+    # Search by name (case-insensitive, part of the name)
+    assert srns("?search=asha") == ["PES1UG24CS001"]
+    # Filter by section
+    assert srns(f"?section_id={section_b}") == ["PES1UG24CS002"]
+    # Filter by semester
+    assert srns("?semester=5") == ["PES1UG24CS002", "PES1UG24CS003"]
+    # Search and filter together
+    assert srns(f"?search=PES1UG24&section_id={section_a}&semester=5") == ["PES1UG24CS003"]
+    # No match returns an empty list
+    assert srns("?search=nobody") == []
+    # Empty search returns all students
+    assert srns("?search=") == [s[0] for s in students]
+    assert srns("") == [s[0] for s in students]
