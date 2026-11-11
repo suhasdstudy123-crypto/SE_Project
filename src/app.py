@@ -3,6 +3,7 @@
 from flask import Flask, jsonify
 from flask_wtf.csrf import CSRFError
 
+from src.routes.dashboard import dashboard_bp
 from src import models  # pylint: disable=unused-import  # registers all tables
 from src.config import Config
 from src.extensions import csrf, db, login_manager
@@ -39,6 +40,7 @@ def create_app(config_class=Config):
     app.register_blueprint(fees_bp)
     app.register_blueprint(students_bp)
     app.register_blueprint(courses_bp)
+    app.register_blueprint(dashboard_bp)
     app.register_blueprint(my_courses_bp)
     app.register_blueprint(attendance_bp)
     app.register_blueprint(student_attendance_bp)
