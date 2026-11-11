@@ -5,7 +5,12 @@ from flask import Blueprint, jsonify, request
 from src.extensions import db
 from src.models import Department, Section, Student
 from src.rbac import admin_required
-from src.validators import ValidationError, validate_email
+from src.validators import (
+    ValidationError,
+    validate_email,
+    validate_semester,
+    validate_srn,
+)
 
 students_bp = Blueprint(
     "students",
@@ -30,8 +35,10 @@ def validate_student_data(
     department_id = data.get("department_id", current.department_id if current else None)
     section_id = data.get("section_id", current.section_id if current else None)
 
-    if not isinstance(srn, str) or not srn.strip():
-        return None, "SRN is required."
+    try:
+        srn = validate_srn(srn)
+    except ValidationError as err:
+        return None, err.message
     if not isinstance(name, str) or not name.strip():
         return None, "Student name is required."
     if not isinstance(email, str) or not email.strip():
@@ -42,8 +49,10 @@ def validate_student_data(
     except ValidationError as err:
         return None, err.message
 
-    if not isinstance(semester, int) or isinstance(semester, bool) or not 1 <= semester <= 8:
-        return None, "Semester must be an integer between 1 and 8."
+    try:
+        semester = validate_semester(semester)
+    except ValidationError as err:
+        return None, err.message
 
     if not isinstance(department_id, int) or isinstance(department_id, bool):
         return None, "A valid department_id is required."
@@ -112,6 +121,9 @@ def list_students():
     if section_id:
         query = query.filter(Student.section_id == section_id)
 
+    semester = request.args.get("semester", type=int)
+    if semester:
+        query = query.filter(Student.semester == semester)
     students = query.order_by(Student.srn).all()
     return jsonify({"students": [student.to_dict() for student in students]})
 
