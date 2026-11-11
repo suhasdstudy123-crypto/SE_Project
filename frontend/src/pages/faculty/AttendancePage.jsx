@@ -89,7 +89,7 @@ export default function AttendancePage() {
     setError("");
 
     try {
-      const endpoint = `/faculty/reports/attendance.csv?course_id=${encodeURIComponent(courseId)}&date=${encodeURIComponent(date)}`;
+      const endpoint = `/faculty/reports/attendance.csv?course_id=${encodeURIComponent(courseId)}`;
       await downloadReport(endpoint, "attendance.csv");
     } catch (err) {
       setError(apiErrorMessage(err, "Could not export attendance."));
@@ -215,9 +215,9 @@ export default function AttendancePage() {
                 <Button
                   variant="outline-primary"
                   onClick={handleExport}
-                  disabled={!recorded || exporting}
+                  disabled={!courseId || exporting}
                 >
-                  {exporting ? "Exporting…" : "Export CSV"}
+                  {exporting ? "Exporting…" : "Export attendance report"}
                 </Button>
               </div>
             </>
