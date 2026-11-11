@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Button, Col, Form, Modal, Row, Spinner, Table } from "react-bootstrap";
 import * as adminApi from "../../api/admin.js";
 import ConfirmDialog from "../../components/ConfirmDialog.jsx";
@@ -195,39 +195,42 @@ export default function StudentsPage() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
+  const [semesterFilter, setSemesterFilter] = useState("");
   const [editing, setEditing] = useState(null); // null = closed, {} = new, student = edit
   const [toDelete, setToDelete] = useState(null);
 
   const load = useCallback(async () => {
     try {
+      const filters = {
+        search: search.trim(),
+        department_id: departmentFilter,
+        section_id: sectionFilter,
+        semester: semesterFilter,
+      };
+
+      Object.keys(filters).forEach((key) => {
+        if (!filters[key]) delete filters[key];
+      });
+
       const [studentList, departmentList] = await Promise.all([
-        adminApi.listStudents(),
+        adminApi.listStudents(filters),
         adminApi.listDepartments(),
       ]);
+
       setStudents(studentList);
       setDepartments(departmentList);
       setLoadError("");
     } catch (error) {
       setLoadError(apiErrorMessage(error));
     }
-  }, []);
+  }, [search, departmentFilter, sectionFilter, semesterFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const visible = useMemo(() => {
-    if (!students) return [];
-    const term = search.trim().toLowerCase();
-    return students.filter(
-      (s) =>
-        (!departmentFilter || String(s.department_id) === departmentFilter) &&
-        (!term ||
-          s.name.toLowerCase().includes(term) ||
-          s.srn.toLowerCase().includes(term) ||
-          s.email.toLowerCase().includes(term)),
-    );
-  }, [students, search, departmentFilter]);
+  const visible = students || [];
 
   async function handleDelete() {
     const student = toDelete;
@@ -278,13 +281,45 @@ export default function StudentsPage() {
           />
           <Form.Select
             value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
+            onChange={(e) => {
+              setDepartmentFilter(e.target.value);
+              setSectionFilter("");
+            }}
             aria-label="Filter by department"
           >
             <option value="">All departments</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
+              </option>
+            ))}
+          </Form.Select>
+
+          <Form.Select
+            value={sectionFilter}
+            onChange={(e) => setSectionFilter(e.target.value)}
+            aria-label="Filter by section"
+          >
+            <option value="">All sections</option>
+            {departments
+              .filter((d) => !departmentFilter || String(d.id) === departmentFilter)
+              .flatMap((d) => d.sections || [])
+              .map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.name}
+                </option>
+              ))}
+          </Form.Select>
+
+          <Form.Select
+            value={semesterFilter}
+            onChange={(e) => setSemesterFilter(e.target.value)}
+            aria-label="Filter by semester"
+          >
+            <option value="">All semesters</option>
+            {SEMESTERS.map((semester) => (
+              <option key={semester} value={semester}>
+                Semester {semester}
               </option>
             ))}
           </Form.Select>
@@ -300,16 +335,24 @@ export default function StudentsPage() {
             <Spinner animation="border" role="status" aria-label="Loading students" />
           </div>
         )}
-        {students && students.length === 0 && (
-          <EmptyState title="No students yet">
-            Use Add student to create the first record.
-          </EmptyState>
-        )}
-        {students && students.length > 0 && visible.length === 0 && (
-          <EmptyState title="No matching students">
-            Try a different name, SRN or department.
-          </EmptyState>
-        )}
+        {students &&
+          students.length === 0 &&
+          !search.trim() &&
+          !departmentFilter &&
+          !sectionFilter &&
+          !semesterFilter && (
+            <EmptyState title="No students yet">
+              Use Add student to create the first record.
+            </EmptyState>
+          )}
+
+        {students &&
+          visible.length === 0 &&
+          (search.trim() || departmentFilter || sectionFilter || semesterFilter) && (
+            <EmptyState title="No matching students">
+              Try a different name, SRN or department.
+            </EmptyState>
+          )}
         {visible.length > 0 && (
           <div className="table-responsive">
             <Table hover className="srs-table">

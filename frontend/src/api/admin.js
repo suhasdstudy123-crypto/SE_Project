@@ -18,8 +18,8 @@ export async function deleteSection(id) {
 }
 
 // Students (card #9)
-export async function listStudents() {
-  return (await api.get("/admin/students")).data.students;
+export async function listStudents(filters = {}) {
+  return (await api.get("/admin/students", { params: filters })).data.students;
 }
 export async function createStudent(student) {
   return (await api.post("/admin/students", student)).data.student;
