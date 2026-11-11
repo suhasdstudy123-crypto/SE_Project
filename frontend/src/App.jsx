@@ -1,3 +1,4 @@
+import ResultsExportPage from "./pages/ResultsExportPage.jsx";
 import { Container, Spinner } from "react-bootstrap";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout.jsx";
@@ -28,12 +29,14 @@ const PAGES_BY_ROLE = {
     ["courses", <CoursesPage key="courses" />],
     ["esa", <EsaWindowPage key="esa" />],
     ["audit", <AuditPage key="audit" />],
+    ["results", <ResultsExportPage key="results" role="admin" />],
   ],
   faculty: [
     ["courses", <MyCoursesPage key="courses" />],
     ["attendance", <AttendancePage key="attendance" />],
     ["marks", <MarksPage key="marks" />],
     ["reports", <ComingSoonPage key="reports" title="Course Analysis" card={25} />],
+    ["results", <ResultsExportPage key="results" role="faculty" />],
   ],
   student: [
     ["courses", <MyCoursesPage key="courses" />],

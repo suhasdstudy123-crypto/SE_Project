@@ -1,3 +1,4 @@
+import { downloadReport } from "../../api/reports.js";
 import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Col, Container, Form, Row, Spinner, Table } from "react-bootstrap";
 import * as attendanceApi from "../../api/attendance.js";
@@ -15,6 +16,7 @@ export default function AttendancePage() {
   const [recorded, setRecorded] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingClass, setLoadingClass] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -79,6 +81,20 @@ export default function AttendancePage() {
       setError(apiErrorMessage(err, "Could not save attendance."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    setError("");
+
+    try {
+      const endpoint = `/faculty/reports/attendance.csv?course_id=${encodeURIComponent(courseId)}`;
+      await downloadReport(endpoint, "attendance.csv");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not export attendance."));
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -191,9 +207,19 @@ export default function AttendancePage() {
                   ))}
                 </tbody>
               </Table>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving ? "Saving…" : "Save attendance"}
-              </Button>
+              <div className="d-flex gap-2">
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? "Saving…" : "Save attendance"}
+                </Button>
+
+                <Button
+                  variant="outline-primary"
+                  onClick={handleExport}
+                  disabled={!courseId || exporting}
+                >
+                  {exporting ? "Exporting…" : "Export attendance report"}
+                </Button>
+              </div>
             </>
           )}
         </>
