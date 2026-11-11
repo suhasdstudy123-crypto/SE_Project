@@ -267,6 +267,12 @@ body {
   color: var(--srs-muted);
 }
 
+/* ESA eligibility granted by an Admin override (card #20) */
+.srs-status-override {
+  background: #fdf1d6;
+  color: #7a5200;
+}
+
 /* ---------- Departments: the register board ---------- */
 .srs-dept-grid {
   display: grid;

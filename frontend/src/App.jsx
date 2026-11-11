@@ -11,10 +11,12 @@ import MyCoursesPage from "./pages/MyCoursesPage.jsx";
 import AuditPage from "./pages/admin/AuditPage.jsx";
 import CoursesPage from "./pages/admin/CoursesPage.jsx";
 import DepartmentsPage from "./pages/admin/DepartmentsPage.jsx";
+import EsaWindowPage from "./pages/admin/EsaWindowPage.jsx";
 import FeesPage from "./pages/admin/FeesPage.jsx";
 import StudentsPage from "./pages/admin/StudentsPage.jsx";
 import AttendancePage from "./pages/faculty/AttendancePage.jsx";
 import MarksPage from "./pages/faculty/MarksPage.jsx";
+import EsaRegistrationPage from "./pages/student/EsaRegistrationPage.jsx";
 import StudentAttendancePage from "./pages/student/StudentAttendancePage.jsx";
 import StudentResultsPage from "./pages/student/StudentResultsPage.jsx";
 
@@ -25,7 +27,7 @@ const PAGES_BY_ROLE = {
     ["students", <StudentsPage key="students" />],
     ["fees", <FeesPage key="fees" />],
     ["courses", <CoursesPage key="courses" />],
-    ["esa", <ComingSoonPage key="esa" title="ESA Window" card={17} />],
+    ["esa", <EsaWindowPage key="esa" />],
     ["audit", <AuditPage key="audit" />],
     ["results", <ResultsExportPage key="results" role="admin" />],
   ],
@@ -39,7 +41,7 @@ const PAGES_BY_ROLE = {
   student: [
     ["courses", <MyCoursesPage key="courses" />],
     ["attendance", <StudentAttendancePage key="attendance" />],
-    ["esa", <ComingSoonPage key="esa" title="ESA Registration" card={18} />],
+    ["esa", <EsaRegistrationPage key="esa" />],
     ["results", <StudentResultsPage key="results" />],
   ],
 };
