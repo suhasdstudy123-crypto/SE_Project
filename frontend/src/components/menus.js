@@ -1,4 +1,4 @@
-// Sidebar menu for each role. Pages not built yet show a "coming soon" note.
+// Sidebar menu for each role.
 export const MENU_ITEMS_BY_ROLE = {
   admin: [
     { label: "Dashboard", path: "/admin", icon: "home" },
@@ -9,6 +9,7 @@ export const MENU_ITEMS_BY_ROLE = {
     { label: "ESA Window", path: "/admin/esa", icon: "calendar" },
     { label: "Audit Log", path: "/admin/audit", icon: "log" },
     { label: "CSV Reports", path: "/admin/results", icon: "chart" },
+    { label: "Result Analysis", path: "/admin/analysis", icon: "chart" },
   ],
   faculty: [
     { label: "Dashboard", path: "/faculty", icon: "home" },
@@ -24,6 +25,7 @@ export const MENU_ITEMS_BY_ROLE = {
     { label: "My Attendance", path: "/student/attendance", icon: "clipboard" },
     { label: "ESA Registration", path: "/student/esa", icon: "calendar" },
     { label: "My Results", path: "/student/results", icon: "chart" },
+    { label: "Class Analysis", path: "/student/analysis", icon: "chart" },
   ],
 };
 

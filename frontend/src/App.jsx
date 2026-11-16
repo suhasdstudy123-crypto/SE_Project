@@ -1,13 +1,13 @@
-import ResultsExportPage from "./pages/ResultsExportPage.jsx";
 import { Container, Spinner } from "react-bootstrap";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./components/AppLayout.jsx";
 import RequireRole from "./components/RequireRole.jsx";
 import { HOME_BY_ROLE, useAuth } from "./auth/authContext.js";
-import ComingSoonPage from "./pages/ComingSoonPage.jsx";
+import CourseAnalysisPage from "./pages/CourseAnalysisPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import MyCoursesPage from "./pages/MyCoursesPage.jsx";
+import ResultsExportPage from "./pages/ResultsExportPage.jsx";
 import AuditPage from "./pages/admin/AuditPage.jsx";
 import CoursesPage from "./pages/admin/CoursesPage.jsx";
 import DepartmentsPage from "./pages/admin/DepartmentsPage.jsx";
@@ -20,7 +20,7 @@ import EsaRegistrationPage from "./pages/student/EsaRegistrationPage.jsx";
 import StudentAttendancePage from "./pages/student/StudentAttendancePage.jsx";
 import StudentResultsPage from "./pages/student/StudentResultsPage.jsx";
 
-// Pages for each role. Add your card's page here (replace its ComingSoonPage).
+// Pages for each role (every card's page is now built).
 const PAGES_BY_ROLE = {
   admin: [
     ["departments", <DepartmentsPage key="departments" />],
@@ -30,12 +30,13 @@ const PAGES_BY_ROLE = {
     ["esa", <EsaWindowPage key="esa" />],
     ["audit", <AuditPage key="audit" />],
     ["results", <ResultsExportPage key="results" role="admin" />],
+    ["analysis", <CourseAnalysisPage key="analysis" role="admin" />],
   ],
   faculty: [
     ["courses", <MyCoursesPage key="courses" />],
     ["attendance", <AttendancePage key="attendance" />],
     ["marks", <MarksPage key="marks" />],
-    ["reports", <ComingSoonPage key="reports" title="Course Analysis" card={25} />],
+    ["reports", <CourseAnalysisPage key="reports" role="faculty" />],
     ["results", <ResultsExportPage key="results" role="faculty" />],
   ],
   student: [
@@ -43,6 +44,7 @@ const PAGES_BY_ROLE = {
     ["attendance", <StudentAttendancePage key="attendance" />],
     ["esa", <EsaRegistrationPage key="esa" />],
     ["results", <StudentResultsPage key="results" />],
+    ["analysis", <CourseAnalysisPage key="analysis" role="student" />],
   ],
 };
 
