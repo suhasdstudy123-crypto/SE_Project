@@ -35,6 +35,8 @@ ROLE_MENUS = {
         {"label": "Fee Status", "path": "/admin/fees"},
         {"label": "ESA Window", "path": "/admin/esa"},
         {"label": "Audit Log", "path": "/admin/audit"},
+        {"label": "CSV Reports", "path": "/admin/results"},
+        {"label": "Result Analysis", "path": "/admin/analysis"},
     ],
     Role.FACULTY: [
         {"label": "Dashboard", "path": "/faculty"},
@@ -42,6 +44,7 @@ ROLE_MENUS = {
         {"label": "Mark Attendance", "path": "/faculty/attendance"},
         {"label": "Enter Marks", "path": "/faculty/marks"},
         {"label": "Course Analysis", "path": "/faculty/reports"},
+        {"label": "CSV Reports", "path": "/faculty/results"},
     ],
     Role.STUDENT: [
         {"label": "Dashboard", "path": "/student"},
@@ -49,6 +52,7 @@ ROLE_MENUS = {
         {"label": "My Attendance", "path": "/student/attendance"},
         {"label": "ESA Registration", "path": "/student/esa"},
         {"label": "My Results", "path": "/student/results"},
+        {"label": "Class Analysis", "path": "/student/analysis"},
     ],
 }
 
