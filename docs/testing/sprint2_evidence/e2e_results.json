@@ -1,0 +1,44 @@
+[
+ {
+  "id": "E2E-20",
+  "name": "Dashboards show live counts (TC-RPT-03)",
+  "status": "PASS",
+  "observed": "Admin dashboard: 30 students, 5 courses, 1 fee defaulter (Student 30), 1 shortage (Student 03) — matches seed data"
+ },
+ {
+  "id": "E2E-21",
+  "name": "Search and filter students (TC-STU-05)",
+  "status": "PASS",
+  "observed": "Search by SRN → 1 student; department CSE → 10 of 30 students"
+ },
+ {
+  "id": "E2E-22",
+  "name": "ESA blocked by shortage, Admin override, student registers (TC-ESA-05, TC-ESA-07, TC-ESA-02)",
+  "status": "PASS",
+  "observed": "Blocked (70% < 75%, Register disabled) → Admin override with reason → audit row written → Student 03 registered"
+ },
+ {
+  "id": "E2E-23",
+  "name": "Closed ESA window blocks registration (TC-ESA-03)",
+  "status": "PASS",
+  "observed": "Admin closes window → student sees 'registration is closed', Register disabled → window reopened"
+ },
+ {
+  "id": "E2E-16",
+  "name": "Complete academic workflow: attendance → ESA → marks → results → analysis (deferred from Sprint 1)",
+  "status": "PASS",
+  "observed": "90% attendance → registered for ESA → faculty saved 18/19/9/45 = 91 → grade S → student sees S, grade point 10 → analysis shows 1 student appeared"
+ },
+ {
+  "id": "E2E-24",
+  "name": "CSV export downloads a correct file (TC-RPT-02)",
+  "status": "PASS",
+  "observed": "attendance_UE24AM241A.csv: header + 20 rows; Student 03 = 14/20, 70.0%, Shortage"
+ },
+ {
+  "id": "E2E-25",
+  "name": "Role isolation on Sprint 2 pages (TC-SEC-02, TC-MRK-06)",
+  "status": "PASS",
+  "observed": "Student opening /admin/esa and /faculty/marks is sent back to the student area; GET /api/faculty/marks/1 → 403"
+ }
+]

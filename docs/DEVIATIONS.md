@@ -58,3 +58,11 @@ This document logs intentional architectural, design, or implementation deviatio
   - Oct 18: commit `e3aa951` (renaming Gowri's tests to Test Plan IDs) was pushed directly to `main` with the teacher's approval.
   - Oct 30: PR #43 (Sprint 1 video and test report) was merged by the repository owner using the branch-protection bypass, without a second approval.
 - All other changes went through pull requests with green CI and a review.
+
+## 9. How the Sprint 2 system tests were run (Test Plan section on system testing)
+
+- **Test Plan:** system tests are manual end-to-end flows run by the Test Engineer; TC-PORT-01 is a teammate setting up the app on a clean laptop; TC-UX-01 is a first-time user timed by hand.
+- **What was done:**
+  - The Sprint 2 end-to-end flows (E2E-16, E2E-20 to E2E-25) were run by a browser script against a fresh install. Each flow checks its own result and saves a screenshot (`docs/testing/sprint2_evidence/`). This is repeatable and leaves evidence, which a manual run does not.
+  - TC-PORT-01 was run as a scripted clean install on Linux with MariaDB 10.11 (MySQL-compatible) instead of a teammate's Windows laptop with MySQL 8. It still caught a real setup bug (defect D-09, passwords containing `@`), which was fixed in the README, `.env.example` and `scripts/create_db.py`.
+  - TC-UX-01: the steps were checked by script (9 actions for 125 students, saved correctly). The timed run with a first-time user was **not carried out** because of the time left before the final demo. The 2-minute target is therefore not formally measured; the design supports it (everyone starts as present, so only absentees are unticked).
