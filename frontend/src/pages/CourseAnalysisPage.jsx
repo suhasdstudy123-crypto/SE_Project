@@ -8,6 +8,10 @@ import PageHeader from "../components/PageHeader.jsx";
 
 // Result analysis per course (SRS-F-022, issue #25, TC-RPT-01).
 // Admin: any course. Faculty: courses they teach. Student: courses they are enrolled in.
+// Best grade first. The API sends the counts as a JSON object, whose key order is not
+// guaranteed (Flask sorts keys alphabetically: A, B, ..., F, S), so the page sets the order.
+const GRADE_ORDER = ["S", "A", "B", "C", "D", "E", "F"];
+
 const DESCRIPTIONS = {
   admin: "Class results for any course.",
   faculty: "How your class did in each course you teach.",
@@ -140,7 +144,10 @@ export default function CourseAnalysisPage({ role }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(analysis.grade_distribution).map(([grade, count]) => (
+                    {GRADE_ORDER.map((grade) => [
+                      grade,
+                      analysis.grade_distribution[grade] || 0,
+                    ]).map(([grade, count]) => (
                       <tr key={grade}>
                         <td>{grade}</td>
                         <td data-testid={`grade-${grade}`}>{count}</td>

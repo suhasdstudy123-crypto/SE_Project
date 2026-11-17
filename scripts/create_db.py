@@ -32,7 +32,12 @@ def main():
             password=url.password or "",
         )
     except pymysql.err.OperationalError as error:
-        sys.exit(f"Could not log in to MySQL. Check the user/password in .env.\nDetails: {error}")
+        sys.exit(
+            "Could not log in to MySQL. Check the user/password in .env.\n"
+            "If your password has @ : / # or %, write @ as %40, : as %3A, / as %2F, "
+            "# as %23, % as %25 (see README).\n"
+            f"Details: {error}"
+        )
 
     with connection:
         with connection.cursor() as cursor:

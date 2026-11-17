@@ -13,6 +13,7 @@ const COURSES = [
 ];
 
 // TC-RPT-01 numbers: totals 30, 40, 60, 80, 90
+// grade_distribution keys in the order Flask sends them (sorted alphabetically)
 const ANALYSIS = {
   course: { id: 7, code: "UE24AM241A", name: "Software Engineering", credits: 4 },
   students_appeared: 5,
@@ -20,7 +21,7 @@ const ANALYSIS = {
   highest: 90,
   lowest: 30,
   pass_percentage: 80,
-  grade_distribution: { S: 1, A: 1, B: 0, C: 1, D: 0, E: 1, F: 1 },
+  grade_distribution: { A: 1, B: 0, C: 1, D: 0, E: 1, F: 1, S: 1 },
 };
 
 const EMPTY = {
@@ -49,6 +50,24 @@ describe("CourseAnalysisPage (issue #25, SRS-F-022)", () => {
     expect(screen.getByTestId("grade-B")).toHaveTextContent("0");
     expect(listMyCourses).toHaveBeenCalledWith("faculty");
     expect(getCourseAnalysis).toHaveBeenCalledWith("faculty", "7");
+  });
+
+  it("lists grades from best to worst (S first, F last) whatever order the API sends", async () => {
+    listMyCourses.mockResolvedValue(COURSES.slice(0, 1));
+    getCourseAnalysis.mockResolvedValue(ANALYSIS);
+    render(<CourseAnalysisPage role="faculty" />);
+
+    await screen.findByTestId("grade-S");
+    const grades = screen.getAllByTestId(/^grade-/).map((cell) => cell.dataset.testid);
+    expect(grades).toEqual([
+      "grade-S",
+      "grade-A",
+      "grade-B",
+      "grade-C",
+      "grade-D",
+      "grade-E",
+      "grade-F",
+    ]);
   });
 
   it("Admin can switch to another course", async () => {
