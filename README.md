@@ -130,7 +130,7 @@ npm run lint                                 # ESLint: 0 errors
 npm run format:check                         # Prettier (run "npm run format" to fix)
 npm run coverage                             # Vitest tests, line coverage must be >= 60%
 npm run build                                # production build
-npm audit --audit-level=high                 # no high-severity vulnerable packages
+npm audit --omit=dev --audit-level=high      # no high-severity issue in packages that ship to users
 ```
 On Windows, `npm run format:check` may warn about every file because Git checks files out with
 Windows line endings (CRLF). CI runs on Linux with the stored LF files, so it is not affected.

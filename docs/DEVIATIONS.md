@@ -57,6 +57,7 @@ This document logs intentional architectural, design, or implementation deviatio
 - **Exceptions:**
   - Oct 18: commit `e3aa951` (renaming Gowri's tests to Test Plan IDs) was pushed directly to `main` with the teacher's approval.
   - Oct 30: PR #43 (Sprint 1 video and test report) was merged by the repository owner using the branch-protection bypass, without a second approval.
+  - Nov 17: commits `fe813e1` and `d1338ac` (SRS v1.2: traceability-matrix status updated after testing) were pushed directly to `main` by the repository owner. They change only `docs/SRS_Student_Record_System_Team12.docx`, no code.
 - All other changes went through pull requests with green CI and a review.
 
 ## 9. How the Sprint 2 system tests were run (Test Plan section on system testing)
@@ -66,3 +67,10 @@ This document logs intentional architectural, design, or implementation deviatio
   - The Sprint 2 end-to-end flows (E2E-16, E2E-20 to E2E-25) were run by a browser script against a fresh install. Each flow checks its own result and saves a screenshot (`docs/testing/sprint2_evidence/`). This is repeatable and leaves evidence, which a manual run does not.
   - TC-PORT-01 was run as a scripted clean install on Linux with MariaDB 10.11 (MySQL-compatible) instead of a teammate's Windows laptop with MySQL 8. It still caught a real setup bug (defect D-09, passwords containing `@`), which was fixed in the README, `.env.example` and `scripts/create_db.py`.
   - TC-UX-01: the steps were checked by script (9 actions for 125 students, saved correctly). The timed run with a first-time user was **not carried out** because of the time left before the final demo. The 2-minute target is therefore not formally measured; the design supports it (everyone starts as present, so only absentees are unticked).
+
+## 10. Frontend dependency audit gate (Test Plan quality gate "npm audit: 0 high")
+
+- **Planned:** CI fails if `npm audit` reports any high-severity issue.
+- **What happened:** on 17–18 Nov 2026 a new advisory was published for `picomatch` (GHSA-fc5q-39xc-vjpf, ReDoS). It covers every released version, so no upgrade fixes it yet. `picomatch` is only used by developer tools (Vite, Vitest) through `tinyglobby`; it is not part of the built app that users download.
+- **Change:** the blocking CI step is now `npm audit --omit=dev --audit-level=high` (packages that ship to users: 0 issues). The full audit still runs in CI and prints its findings, but does not block. When a fixed `picomatch` is released, the full audit can be made blocking again.
+
