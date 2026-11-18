@@ -14,33 +14,37 @@ Covers **TC-PERF-01** (SRS-NF-001), **TC-UX-01** (SRS-NF-002) and **TC-PORT-01**
 `tests/integration/test_performance.py` seeds the data set above and times the API behind
 each page. The test fails if any page takes more than 2 s. In CI it runs against MySQL 8.
 
+Measured 17 Nov 2026 on MariaDB 10.11 (MySQL-compatible), `pytest tests/integration/test_performance.py -s`:
+
 | Role | API (page) | Time | Result |
 |---|---|---|---|
-| Admin | `GET /api/admin/students` (Students, 500 rows) | | |
-| Admin | `GET /api/admin/dashboard` | | |
-| Admin | `GET /api/admin/esa-eligibility/<course>` (ESA Window, 125 rows) | | |
-| Admin | `GET /api/admin/analysis/<course>` | | |
-| Admin | `GET /api/admin/reports/results.csv` (2,500 rows) | | |
-| Faculty | `GET /api/faculty/attendance/<course>?date=` (125 students) | | |
-| Faculty | `GET /api/faculty/marks/<course>` (125 students) | | |
-| Faculty | `GET /api/faculty/dashboard` | | |
-| Student | `GET /api/student/results`, `/attendance`, `/esa` | | |
+| Admin | `GET /api/admin/students` (Students, 500 rows) | 0.013 s | Pass |
+| Admin | `GET /api/admin/dashboard` | 0.281 s | Pass |
+| Admin | `GET /api/admin/esa-eligibility/<course>` (ESA Window, 125 rows) | 0.297 s | Pass |
+| Admin | `GET /api/admin/analysis/<course>` | 0.006 s | Pass |
+| Admin | `GET /api/admin/reports/results.csv` (2,500 rows) | 0.270 s | Pass |
+| Faculty | `GET /api/faculty/attendance/<course>?date=` (125 students) | 0.025 s | Pass |
+| Faculty | `GET /api/faculty/marks/<course>` (125 students) | 0.010 s | Pass |
+| Faculty | `GET /api/faculty/dashboard` | 0.346 s | Pass |
+| Student | `GET /api/student/results`, `/attendance`, `/esa` | ≤ 0.023 s | Pass |
 
 ### 1b. Full page in the browser (API + React render)
 
 Production build (`npm run build` + `vite preview`), Flask backend, browser.
 Time = from opening the URL until the last row is on screen; worst of 3 runs.
 
+Measured 17 Nov 2026: fresh install from the README on MariaDB 10.11, `scripts/seed_perf_data.py`, production build, Chromium (scripted timing, see DEVIATIONS §6).
+
 | Page | Rows | Worst of 3 | Result |
 |---|---|---|---|
-| Admin → Students | 530 | | |
-| Admin → Dashboard | — | | |
-| Faculty → Mark Attendance (UE24PF01) | 125 | | |
-| Faculty → Enter Marks (UE24PF01) | 125 | | |
-| Student → My Results | 5 courses | | |
-| Student → My Attendance | 5 courses | | |
+| Admin → Students | 530 | 0.57 s | Pass |
+| Admin → Dashboard | — | 1.11 s | Pass |
+| Faculty → Mark Attendance (UE24PF01) | 125 | 0.54 s | Pass |
+| Faculty → Enter Marks (UE24PF01) | 125 | 0.47 s | Pass |
+| Student → My Results | 5 courses | 0.32 s | Pass |
+| Student → My Attendance | 5 courses | 0.37 s | Pass |
 
-**TC-PERF-01 status:** _to be filled in by the Test Engineer._
+**TC-PERF-01 status: PASS.** Slowest API 0.35 s, slowest full page 1.11 s (Admin dashboard), against a 2 s limit.
 
 ### How to repeat it on your laptop (MySQL)
 
@@ -71,9 +75,14 @@ button resets the list. A counter shows "N of 60 present" before saving.
 
 Start the stopwatch at step 1 and stop it at step 4. Give no help.
 
+**Step check (scripted walkthrough, 17 Nov 2026):** course UE24PF01 with 125 students, 6 absentees.
+The task needed **9 actions** (open page, pick course, untick 6, Save); the database then held
+119 present and 6 absent rows for that date. Screenshot: `sprint2_evidence/ux01_attendance_125_students.png`.
+A script cannot stand in for a first-time user. The timed run with a person was not carried out before the final demo (DEVIATIONS §9).
+
 | Date | Tester (first-time user) | Students | Absentees | Time | Help needed? | Result |
 |---|---|---|---|---|---|---|
-| | | | 6 | | | |
+| — | Not run (see DEVIATIONS §9) | — | 6 | — | — | **Not run** |
 
 **Pass if:** finished in ≤ 2 minutes without help. Record the result above and in the
 Sprint 2 Test Summary Report.
@@ -93,7 +102,11 @@ Python 3.10+, Node.js 18+, Git and MySQL 8 (or MariaDB) installed.
 
 | Date | Tester | Machine / OS / DB | Time | Problems found | Result |
 |---|---|---|---|---|---|
-| | | | | | |
+| 17 Nov 2026 | Scripted run, clean machine (1st try) | Linux, Python 3.13, Node 22, MariaDB 10.11 | — | A MySQL password containing `@` broke `DATABASE_URL` (`Test1@localhost` read as the host). README gave no warning (defect D-09). | Fail → fixed |
+| 17 Nov 2026 | Scripted run, clean machine (rerun after fix) | Linux, Python 3.13, Node 22, MariaDB 10.11 | 16 s machine time (package caches warm) | None. Login as admin worked; a student added directly in MariaDB showed up in the app (31), proving the fresh backend used the new database. | **Pass** |
+
+The scripted run checks that every README step works on a clean machine; a person reading the README
+for the first time takes longer, but the steps are the same. Screenshot: `sprint2_evidence/port01_fresh_install_dashboard.png`.
 
 **Pass if:** the app is running and the login works within 15 minutes using only the README.
 
