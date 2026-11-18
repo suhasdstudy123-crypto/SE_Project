@@ -74,3 +74,9 @@ This document logs intentional architectural, design, or implementation deviatio
 - **What happened:** on 17–18 Nov 2026 a new advisory was published for `picomatch` (GHSA-fc5q-39xc-vjpf, ReDoS). It covers every released version, so no upgrade fixes it yet. `picomatch` is only used by developer tools (Vite, Vitest) through `tinyglobby`; it is not part of the built app that users download.
 - **Change:** the blocking CI step is now `npm audit --omit=dev --audit-level=high` (packages that ship to users: 0 issues). The full audit still runs in CI and prints its findings, but does not block. When a fixed `picomatch` is released, the full audit can be made blocking again.
 
+
+## 11. Documents updated after the sprints
+
+- **SRS v1.2 (17 Nov 2026):** the traceability matrix (Section 8) now shows the final test status: 38 requirements Passed, SRS-NF-002 (TC-UX-01) Not run (see §9).
+- **Test Plan v1.2 (18 Nov 2026):** test cases updated to match §1–4, §6 and §9 (Deliverables Part-3); schedule shows the actual dates from §7.
+- **Branch coverage:** switched on for the backend (`pyproject.toml`, `branch = true`), so the CI coverage stage now measures statements and branches together. Report: `docs/testing/Backend_Branch_Coverage_Report.md` (93.3% of branches, 96.9% combined, gate ≥ 80%).

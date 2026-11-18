@@ -16,3 +16,4 @@ disable = ["too-few-public-methods"]
 
 [tool.coverage.run]
 source = ["src"]
+branch = true
